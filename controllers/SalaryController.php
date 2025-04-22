@@ -1,7 +1,9 @@
 <?php
 require_once './models/Bincang_Salary.php';
+require_once 'Controller.php';
 
-class SalaryController
+
+class SalaryController extends Controller
 {
     private $model;
 
@@ -41,9 +43,6 @@ class SalaryController
 
     public function nonRestFul()
     {
-        $namaku = "nama/aku/joan/";
-        $namaParts = explode('/', $namaku);
-
-        print_r($namaParts);
+        $this->generate_uuid();
     }
 }
