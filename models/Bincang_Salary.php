@@ -12,16 +12,9 @@ class Bincang_Salary
     public function getAll()
     {
         $sql = "SELECT * FROM " . $this->table;
-        $result = $this->conn->query($sql);
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
 
-        $data = [];
-
-        if ($result && $result->num_rows > 0) {
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
-        }
-
-        return $data;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

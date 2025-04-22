@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /bincang_accounting/
+RewriteBase /bincang_accounting
 
 # Jika file atau folder tidak ditemukan, alihkan ke index.php
 RewriteCond %{REQUEST_FILENAME} !-f

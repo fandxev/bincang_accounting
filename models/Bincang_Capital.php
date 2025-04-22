@@ -24,4 +24,25 @@ class Bincang_Capital
 
         return $data;
     }
+
+    public function insert($data)
+    {
+        $sql = "INSERT INTO {$this->table} 
+            (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at)
+            VALUES
+            (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :last_capital, :user_uuid, :created_at)";
+
+        $stmt = $this->conn->prepare($sql);
+
+        return $stmt->execute([
+            ':capital_uuid'     => $data['capital_uuid'],
+            ':type_transaction' => $data['type_transaction'],
+            ':purchase_uuid'    => $data['purchase_uuid'],
+            ':amount'           => $data['amount'],
+            ':description'      => $data['description'],
+            ':last_capital'     => $data['last_capital'],
+            ':user_uuid'        => $data['user_uuid'],
+            ':created_at'       => $data['created_at'],
+        ]);
+    }
 }

@@ -42,6 +42,11 @@ if (file_exists($controllerFile)) {
 
             call_user_func_array([$controller, $action], $pathParam);
         }
+    } else {
+        $action = strtolower($_SERVER['REQUEST_METHOD']);
+        $pathParam = array_slice($urlParts, 1);
+
+        call_user_func_array([$controller, $action], $pathParam);
     }
 } else {
     echo "Controller '$controllerName' tidak ditemukan.";

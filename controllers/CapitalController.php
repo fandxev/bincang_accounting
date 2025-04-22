@@ -30,7 +30,27 @@ class CapitalController
         echo "get by id " . $id;
     }
 
-    public function post() {}
+    public function post()
+    {
+        $data = [
+            'capital_uuid'     => uniqid('cap_'),
+            'type_transaction' => $_POST['type_transaction'],
+            'purchase_uuid'    => $_POST['purchase_uuid'] ?? null,
+            'amount'           => $_POST['amount'] ?? 0,
+            'description'      => $_POST['description'] ?? '',
+            'last_capital'     => $_POST['last_capital'] ?? 0,
+            'user_uuid'        => $_POST['user_uuid'] ?? '',
+            'created_at'       => time(),
+        ];
+
+        $result = $this->model->insert($data);
+
+        if ($result) {
+            echo "Data berhasil disimpan.";
+        } else {
+            echo "Gagal menyimpan data.";
+        }
+    }
 
     public function put($id)
     {

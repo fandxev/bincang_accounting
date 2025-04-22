@@ -10,7 +10,9 @@ class SalaryController
         $this->model = new Bincang_Salary($db);
     }
 
-    public function index()
+    public function index() {}
+
+    public function get()
     {
         $data = $this->model->getAll();
 
@@ -20,20 +22,12 @@ class SalaryController
         echo "</pre>";
     }
 
-    public function get()
-    {
-        echo "getAll";
-    }
-
     public function show($id)
     {
         echo "get by id " . $id;
     }
 
-    public function post()
-    {
-        echo "post";
-    }
+    public function post() {}
 
     public function put($id)
     {
@@ -47,6 +41,9 @@ class SalaryController
 
     public function nonRestFul()
     {
-        echo phpinfo();
+        $namaku = "nama/aku/joan/";
+        $namaParts = explode('/', $namaku);
+
+        print_r($namaParts);
     }
 }

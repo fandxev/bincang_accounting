@@ -9,12 +9,13 @@ class Database
 
     public function connect()
     {
-        $this->conn = new mysqli($this->host, $this->username, $this->password, $this->dbname);
-
-        if ($this->conn->connect_error) {
-            die("Koneksi gagal: " . $this->conn->connect_error);
+        try {
+            $dsn = "mysql:host=$this->host;dbname=$this->dbname;charset=utf8mb4";
+            $this->conn = new PDO($dsn, $this->username, $this->password);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $this->conn;
+        } catch (PDOException $e) {
+            die("Koneksi gagal: " . $e->getMessage());
         }
-
-        return $this->conn;
     }
 }
