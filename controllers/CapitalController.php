@@ -1,13 +1,13 @@
 <?php
-require_once './models/Bincang_Salary.php';
+require_once './models/Bincang_Capital.php';
 
-class SalaryController
+class CapitalController
 {
     private $model;
 
     public function __construct($db)
     {
-        $this->model = new Bincang_Salary($db);
+        $this->model = new Bincang_Capital($db);
     }
 
     public function index()
@@ -30,10 +30,7 @@ class SalaryController
         echo "get by id " . $id;
     }
 
-    public function post()
-    {
-        echo "post";
-    }
+    public function post() {}
 
     public function put($id)
     {
@@ -47,6 +44,6 @@ class SalaryController
 
     public function nonRestFul()
     {
-        echo phpinfo();
+        echo "voila ini non restful";
     }
 }
