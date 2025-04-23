@@ -3,7 +3,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use Ramsey\Uuid\Uuid;
 
-class Controller
+class BaseAccountingController
 {
 
 

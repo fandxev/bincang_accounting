@@ -1,6 +1,12 @@
 <?php
 
 require_once 'config/Database.php';
+// Composer autoload
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Load semua helper
+require_once __DIR__ . '/helpers/accounting_helper.php';
+
 
 $db = new Database();
 $conn = $db->connect();

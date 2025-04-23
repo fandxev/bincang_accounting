@@ -1,9 +1,8 @@
 <?php
 require_once './models/Bincang_Salary.php';
-require_once 'Controller.php';
 
 
-class SalaryController extends Controller
+class SalaryController
 {
     private $model;
 
@@ -43,6 +42,6 @@ class SalaryController extends Controller
 
     public function nonRestFul()
     {
-        $this->generate_uuid();
+        generate_uuid();
     }
 }

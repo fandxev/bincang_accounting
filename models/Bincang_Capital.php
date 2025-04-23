@@ -9,20 +9,51 @@ class Bincang_Capital
         $this->conn = $conn;
     }
 
-    public function getAll()
+    public function getAll($page = 1, $perPage = 10,  $search = null, $startDate = null, $endDate = null)
     {
-        $sql = "SELECT * FROM " . $this->table;
-        $result = $this->conn->query($sql);
 
-        $data = [];
+        $start = ($page - 1) * $perPage;
 
-        if ($result && $result->num_rows > 0) {
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
+        $sql = "SELECT c.*, u.user_username as username 
+            FROM " . $this->table . " c
+            JOIN bincang_user u ON c.user_uuid = u.user_uuid";
+
+        if (!empty($search)) {
+            $sql .= " WHERE 
+            c.type_transaction LIKE :search OR 
+            c.amount LIKE :search OR 
+            c.description LIKE :search OR 
+            c.last_capital LIKE :search OR
+            u.user_username LIKE :search
+            ";
         }
 
-        return $data;
+        $sql .= " ORDER BY c.id DESC
+            LIMIT :start, :perPage";
+
+        $stmt = $this->conn->prepare($sql);
+
+        if (!empty($search)) {
+            $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':start', $start, PDO::PARAM_INT);
+        $stmt->bindValue(':perPage', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':perPage', $perPage, PDO::PARAM_INT);
+
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+        foreach ($result as &$item) {
+            date_default_timezone_set('Asia/Jakarta');
+            $item['created_at'] = date('Y-m-d H:i:s', $item['created_at']);
+        }
+        return
+            [
+                "status" => "success",
+                "code" => 200,
+                "data" => $result
+            ];
     }
 
     public function insert($data)
@@ -44,5 +75,23 @@ class Bincang_Capital
             ':user_uuid'        => $data['user_uuid'],
             ':created_at'       => $data['created_at'],
         ]);
+    }
+
+    public function get_recent_last_capital()
+    {
+        try {
+            $sql = "SELECT last_capital FROM " . $this->table . " ORDER BY created_at DESC LIMIT 1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $lastCapital = $result['last_capital'];
+                return $lastCapital;
+            } else {
+                return 0;
+            }
+        } catch (PDOException $e) {
+            echo "Error get last capital: " . $e->getMessage();
+        }
     }
 }
