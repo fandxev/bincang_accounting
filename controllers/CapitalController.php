@@ -31,7 +31,7 @@ class CapitalController
         $endDate = (isset($_GET['endDate'])) ? $_GET['endDate'] : null;
 
 
-        $result = $this->model->getAll($page, $perPage, $search);
+        $result = $this->model->getAll($page, $perPage, $search, $startDate, $endDate);
         header('Content-Type: application/json');
         echo json_encode($result);
     }
@@ -43,7 +43,6 @@ class CapitalController
 
     public function post()
     {
-        echo "dari sibling: " . $this->get_recent_last_capital();
         $new_capital = 0;
         if ($_POST['type_transaction'] == "income") {
             $new_capital = $this->get_recent_last_capital() + $_POST['amount'];
@@ -68,10 +67,16 @@ class CapitalController
         $result = $this->model->insert($data);
 
         if ($result) {
-            echo "Data berhasil disimpan.";
+            header('Content-Type: application/json');
+            echo json_encode($result);
         } else {
             echo "Gagal menyimpan data.";
         }
+    }
+
+    public function patch($id)
+    {
+        echo "amoount: " . $_PATCH['amount'];
     }
 
     public function put($id)
