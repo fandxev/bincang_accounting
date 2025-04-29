@@ -49,8 +49,8 @@ class CapitalController
         } else if ($_POST['type_transaction'] == "expense") {
             $new_capital = $this->get_recent_last_capital() - $_POST['amount'];
         } else {
-            echo "invalid transaction";
-            return 0;
+            errorResponse(400, "Transaksi Invalid");
+            return;
         }
 
         $data = [
@@ -70,13 +70,40 @@ class CapitalController
             header('Content-Type: application/json');
             echo json_encode($result);
         } else {
-            echo "Gagal menyimpan data.";
+            errorResponse(500, "Terjadi Kesalahan");
         }
     }
 
     public function patch($id)
     {
-        echo "amoount: " . $_PATCH['amount'];
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        $new_capital_uuid = (isset($data['capital_uuid'])) ? $data['capital_uuid'] : null;
+        $new_type_transaction = (isset($data['type_transaction'])) ? $data['type_transaction'] : null;
+        $new_purchase_uuid = (isset($data['purchase_uuid'])) ? $data['purchase_uuid'] : null;
+        $new_amount = (isset($data['amount'])) ? $data['amount'] : null;
+        $new_description = (isset($data['description'])) ? $data['description'] : null;
+        $new_last_capital = (isset($data['last_capital'])) ? $data['last_capital'] : null;
+        $new_user_uuid = (isset($data['user_uuid'])) ? $data['user_uuid'] : null;
+
+
+
+        $updateData = [
+            'type_transaction' => $new_type_transaction,
+            'purchase_uuid'    => $new_purchase_uuid,
+            'amount'           => $new_amount,
+            'description'      => $new_description,
+            'last_capital'     => $new_last_capital,
+            'user_uuid'        => $new_user_uuid,
+        ];
+
+        $result = $this->model->update($id, $updateData);
+        if ($result) {
+            header('Content-Type: application/json');
+            echo json_encode($result);
+        }
     }
 
     public function put($id)
@@ -84,9 +111,71 @@ class CapitalController
         echo "update by id " . $id;
     }
 
+    public function deletePermanently($id)
+    {
+        if (!isset($id)) {
+            echo json_encode([
+                "status" => "error",
+                "code" => 400,
+                "message" => "capital_uuid tidak ditemukan"
+            ]);
+            return;
+        }
+
+        $capital_uuid = $id;
+
+        $result = $this->model->deletePermanently($capital_uuid);
+
+        header('Content-Type: application/json');
+        echo json_encode($result);
+    }
+
+
+    /*soft del */
     public function delete($id)
     {
-        echo "delete by id " . $id;
+        if (!$id) {
+            errorResponse(400, "id capital tidak boleh kosong");
+            return;
+        }
+
+        if (!isset($_GET['deleted_by'])) {
+            errorResponse(400, "id pengguna yang menghapus tidak boleh kosong");
+            return;
+        }
+
+        $capital_uuid = $id;
+        $deleted_by = $_GET['deleted_by'];
+
+        $result = $this->model->delete($capital_uuid, $deleted_by);
+
+        if ($result) {
+            header('Content-Type: application/json');
+            echo json_encode($result);
+        } else {
+            errorResponse(500, "Terjadi kesalahan");
+        }
+    }
+
+    public function recover($id)
+    {
+        if (!$id) {
+            errorResponse(400, "id capital tidak boleh kosong");
+            return;
+        }
+
+
+
+        $capital_uuid = $id;
+
+        $result = $this->model->recover($capital_uuid);
+
+        if ($result) {
+            header('Content-Type: application/json');
+            echo json_encode($result);
+        } else {
+            errorResponse(500, "Terjadi kesalahan");
+        }
     }
 
     public function nonRestFul()
