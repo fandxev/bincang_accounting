@@ -15,12 +15,15 @@ class SalaryController
 
     public function get()
     {
-        $data = $this->model->getAll();
-
-        echo "<h2>Data Salary</h2>";
-        echo "<pre>";
-        print_r($data);
-        echo "</pre>";
+        $page = (isset($_GET['page'])) ? $_GET['page'] : 1;
+        $perPage = (isset($_GET['perPage'])) ? $_GET['perPage'] : 10;
+        $search = (isset($_GET['search'])) ? $_GET['search'] : null;
+        $startDate = (isset($_GET['startDate'])) ? $_GET['startDate'] : null;
+        $endDate = (isset($_GET['endDate'])) ? $_GET['endDate'] : null;
+    
+        $result = $this->model->getAll($page, $perPage, $search, $startDate, $endDate);
+        header('Content-Type: application/json');
+        echo json_encode($result);
     }
 
     public function show($id)
