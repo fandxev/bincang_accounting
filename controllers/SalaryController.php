@@ -166,9 +166,8 @@ public function delete($id)
     }
 
 
-    public function updateProofImage()
+    public function updateProofImage($salary_id)
 {
-    $salary_id = $_POST['salary_uuid'] ?? null;
 
     if (!$salary_id || !isset($_FILES['proof_of_payment']) || $_FILES['proof_of_payment']['error'] !== UPLOAD_ERR_OK) {
         errorResponse(400, "ID gaji dan file bukti pembayaran wajib diisi dan valid");
