@@ -31,6 +31,58 @@ class SalaryController
         echo "get by id " . $id;
     }
 
+    public function patch($id)
+{
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
+
+    $updateData = [
+        'user_uuid'        => $data['user_uuid'] ?? null,
+        'payee_user_uuid'  => $data['payee_user_uuid'] ?? null,
+        'month'            => $data['month'] ?? null,
+        'year'             => $data['year'] ?? null,
+        'basic_salary'     => $data['basic_salary'] ?? null,
+        'allowance'        => $data['allowance'] ?? null,
+        'bonus'            => $data['bonus'] ?? null,
+        'deduction'        => $data['deduction'] ?? null,
+        'payment_date'     => $data['payment_date'] ?? null,
+        'status'           => $data['status'] ?? null,
+        'proof_of_payment' => $data['proof_of_payment'] ?? null,
+    ];
+
+    $result = $this->model->update($id, $updateData);
+    if ($result) {
+        header('Content-Type: application/json');
+        echo json_encode($result);
+    }
+}
+
+public function delete($id)
+{
+    if (!$id) {
+        errorResponse(400, "id salary tidak boleh kosong");
+        return;
+    }
+
+    if (!isset($_GET['deleted_by'])) {
+        errorResponse(400, "id pengguna yang menghapus tidak boleh kosong");
+        return;
+    }
+
+    $salary_uuid = $id;
+    $deleted_by = $_GET['deleted_by'];
+
+    $result = $this->model->delete($salary_uuid, $deleted_by);
+
+    if ($result) {
+        header('Content-Type: application/json');
+        echo json_encode($result);
+    } else {
+        errorResponse(500, "Terjadi kesalahan");
+    }
+}
+
+
     public function post()
     {
         // Hitung total salary
@@ -87,18 +139,86 @@ class SalaryController
         }
     }
 
+    public function recover($id)
+    {
+        if (!$id) {
+            errorResponse(400, "id salary tidak boleh kosong");
+            return;
+        }
+
+
+
+        $salary_uuid = $id;
+
+        $result = $this->model->recover($salary_uuid);
+
+        if ($result) {
+            header('Content-Type: application/json');
+            echo json_encode($result);
+        } else {
+            errorResponse(500, "Terjadi kesalahan");
+        }
+    }
+
     public function put($id)
     {
         echo "update by id " . $id;
     }
 
-    public function delete($id)
-    {
-        echo "delete by id " . $id;
+
+    public function updateProofImage()
+{
+    $salary_id = $_POST['salary_uuid'] ?? null;
+
+    if (!$salary_id || !isset($_FILES['proof_of_payment']) || $_FILES['proof_of_payment']['error'] !== UPLOAD_ERR_OK) {
+        errorResponse(400, "ID gaji dan file bukti pembayaran wajib diisi dan valid");
+        return;
     }
 
-    public function nonRestFul()
-    {
-        generate_uuid();
+    // Cek data lama dari database
+    $existing = $this->model->findById($salary_id);
+    if (!$existing) {
+        errorResponse(404, "Data gaji tidak ditemukan");
+        return;
     }
+
+    // Upload file baru
+    $upload_dir = __DIR__ . '/../uploads/salary_proof/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0777, true);
+    }
+
+    $filename = uniqid() . '_' . basename($_FILES['proof_of_payment']['name']);
+    $target_file = $upload_dir . $filename;
+
+    if (!move_uploaded_file($_FILES['proof_of_payment']['tmp_name'], $target_file)) {
+        errorResponse(500, "Gagal mengunggah bukti pembayaran baru");
+        return;
+    }
+
+    $new_file_path = 'uploads/salary_proof/' . $filename;
+
+    // Hapus file lama jika ada
+    if (!empty($existing['proof_of_payment'])) {
+        $old_file = __DIR__ . '/../' . $existing['proof_of_payment'];
+        if (file_exists($old_file)) {
+            unlink($old_file);
+        }
+    }
+
+    // Update ke database
+    $updated = $this->model->updateProofImage($salary_id, $new_file_path);
+
+    if ($updated) {
+        echo json_encode([
+            "status" => "success",
+            "code" => 200,
+            "message" => "Bukti pembayaran berhasil diperbarui",
+            "data" => $new_file_path
+        ]);
+    } else {
+        errorResponse(500, "Gagal memperbarui referensi gambar di database");
+    }
+}
+
 }

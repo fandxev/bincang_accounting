@@ -120,6 +120,170 @@ class Bincang_Salary
             "data" => $result
         ];
     }
+
+    public function update($salary_uuid, $data)
+{
+    // Ambil data lama dari DB
+    $sqlOld = "SELECT * FROM {$this->table} WHERE salary_uuid = :id";
+    $stmtOld = $this->conn->prepare($sqlOld);
+    $stmtOld->bindValue(':id', $salary_uuid);
+    $stmtOld->execute();
+    $oldData = $stmtOld->fetch(PDO::FETCH_ASSOC);
+
+    if (!$salary_uuid) {
+        return errorResponse("400", "id is required");
+    }
+
+    if (!$oldData) {
+        return errorResponse("404", "Data tidak ditemukan");
+    }
+
+    // Merge data baru dengan data lama
+    $mergedData = [
+        'user_uuid'        => $data['user_uuid']        ?? $oldData['user_uuid'],
+        'payee_user_uuid'  => $data['payee_user_uuid']  ?? $oldData['payee_user_uuid'],
+        'month'            => $data['month']            ?? $oldData['month'],
+        'year'             => $data['year']             ?? $oldData['year'],
+        'basic_salary'     => $data['basic_salary']     ?? $oldData['basic_salary'],
+        'allowance'        => $data['allowance']        ?? $oldData['allowance'],
+        'bonus'            => $data['bonus']            ?? $oldData['bonus'],
+        'deduction'        => $data['deduction']        ?? $oldData['deduction'],
+        'payment_date'     => $data['payment_date']     ?? $oldData['payment_date'],
+        'status'           => $data['status']           ?? $oldData['status'],
+        'proof_of_payment' => $data['proof_of_payment'] ?? $oldData['proof_of_payment'],
+    ];
+
+    // Hitung total_salary
+    $total_salary = $mergedData['basic_salary'] + $mergedData['allowance'] + $mergedData['bonus'] - $mergedData['deduction'];
+
+    // Jalankan update
+    $sql = "UPDATE {$this->table} SET 
+        user_uuid = :user_uuid,
+        payee_user_uuid = :payee_user_uuid,
+        month = :month,
+        year = :year,
+        basic_salary = :basic_salary,
+        allowance = :allowance,
+        bonus = :bonus,
+        deduction = :deduction,
+        total_salary = :total_salary,
+        payment_date = :payment_date,
+        status = :status,
+        proof_of_payment = :proof_of_payment,
+        updated_at = :updated_at
+        WHERE salary_uuid = :id AND deleted_at IS NULL AND deleted_by IS NULL";
+
+    $stmt = $this->conn->prepare($sql);
+
+    $stmt->execute([
+        ':user_uuid'        => $mergedData['user_uuid'],
+        ':payee_user_uuid'  => $mergedData['payee_user_uuid'],
+        ':month'            => $mergedData['month'],
+        ':year'             => $mergedData['year'],
+        ':basic_salary'     => $mergedData['basic_salary'],
+        ':allowance'        => $mergedData['allowance'],
+        ':bonus'            => $mergedData['bonus'],
+        ':deduction'        => $mergedData['deduction'],
+        ':total_salary'     => $total_salary,
+        ':payment_date'     => $mergedData['payment_date'],
+        ':status'           => $mergedData['status'],
+        ':proof_of_payment' => $mergedData['proof_of_payment'],
+        ':updated_at'       => time(),
+        ':id'               => $salary_uuid,
+    ]);
+
+    $affectedRows = $stmt->rowCount();
+
+    if ($affectedRows > 0) {
+        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
+        FROM {$this->table} s
+        LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
+        LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+        WHERE salary_uuid = :id";
+        $stmtSelect = $this->conn->prepare($sqlSelect);
+        $stmtSelect->bindValue(':id', $salary_uuid);
+        $stmtSelect->execute();
+        $item = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
+        if ($item) {
+            date_default_timezone_set('Asia/Jakarta');
+            $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
+            return [
+                "status" => "success",
+                "code" => 200,
+                "data" => $item
+            ];
+        }
+    }
+
+    return [
+        "status" => "error",
+        "code" => 500,
+        "message" => "Gagal memperbarui data."
+    ];
+}
+
+
+public function delete($salary_uuid, $deleted_by)
+    {
+        // Ambil data sebelum update
+        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
+        FROM {$this->table} s
+        LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
+        LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+        WHERE salary_uuid = :id";
+        $stmtSelect = $this->conn->prepare($sqlSelect);
+        $stmtSelect->bindValue(':id', $salary_uuid);
+        $stmtSelect->execute();
+        $item = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
+
+        if (!$item) {
+            return [
+                "status" => "error",
+                "code" => 404,
+                "message" => "Data tidak ditemukan."
+            ];
+        }
+
+
+        $sql = "UPDATE {$this->table} 
+            SET deleted_by = :deleted_by, deleted_at = :deleted_at 
+            WHERE salary_uuid = :salary_uuid";
+
+        $stmt = $this->conn->prepare($sql);
+        $deletedAt = time();
+
+        $stmt->execute([
+            ':deleted_by'   => $deleted_by,
+            ':deleted_at'   => $deletedAt,
+            ':salary_uuid' => $salary_uuid
+        ]);
+
+        $affectedRows = $stmt->rowCount();
+
+        if ($affectedRows > 0) {
+
+            $item['deleted_by'] = $deleted_by;
+            $item['deleted_at'] = $deletedAt;
+
+
+
+            return [
+                "status" => "success",
+                "code"   => 200,
+                "message" => "Data berhasil dihapus",
+                "data" => $item
+            ];
+        }
+
+        return [
+            "status" => "error",
+            "code"   => 500,
+            "message" => "Gagal menghapus data."
+        ];
+    }
+
     
 
     public function insert($data)
@@ -151,7 +315,7 @@ class Bincang_Salary
         if ($stmt->rowCount() > 0) {
             $lastId = $this->conn->lastInsertId();
 
-            $sqlSelect = "SELECT s.*, u.user_username as payer_username, p.user_username as payee_username
+            $sqlSelect = "SELECT s.*, u.user_username as salary_input_by, p.user_username as username_payee
                       FROM {$this->table} s
                       LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
                       LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
@@ -172,4 +336,77 @@ class Bincang_Salary
             }
         }
     }
+
+    public function recover($salary_uuid)
+    {
+        // Ambil data sebelum update
+        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
+        FROM {$this->table} s
+        LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
+        LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+        WHERE salary_uuid = :salary_uuid";
+
+        $stmtSelect = $this->conn->prepare($sqlSelect);
+        $stmtSelect->execute([':salary_uuid' => $salary_uuid]);
+        $item = $stmtSelect->fetch(PDO::FETCH_ASSOC);
+
+        if (!$item) {
+            return [
+                "status" => "error",
+                "code" => 404,
+                "message" => "Data tidak ditemukanx."
+            ];
+        }
+
+
+        $sql = "UPDATE {$this->table} 
+            SET deleted_by = null, deleted_at = null 
+            WHERE salary_uuid = :salary_uuid";
+
+        $stmt = $this->conn->prepare($sql);
+        $deletedAt = time();
+
+        $stmt->execute([
+            ':salary_uuid' => $salary_uuid
+        ]);
+
+        $affectedRows = $stmt->rowCount();
+
+        if ($affectedRows > 0) {
+
+
+            return [
+                "status" => "success",
+                "code"   => 200,
+                "message" => "Data berhasil dikembalikan",
+                "data" => $item
+            ];
+        }
+
+        return [
+            "status" => "error",
+            "code"   => 500,
+            "message" => "Gagal menghapus data."
+        ];
+    }
+
+    public function updateProofImage($id, $filePath)
+{
+    $sql = "UPDATE {$this->table} SET proof_of_payment = :filePath WHERE salary_uuid = :id";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bindValue(':filePath', $filePath);
+    $stmt->bindValue(':id', $id, PDO::PARAM_STR);
+    return $stmt->execute();
+}
+
+public function findById($id)
+{
+    $sql = "SELECT * FROM {$this->table} WHERE salary_uuid = :id LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+
 }
