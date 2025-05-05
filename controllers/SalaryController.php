@@ -47,6 +47,11 @@ class SalaryController
         'deduction'        => $data['deduction'] ?? null,
         'payment_date'     => $data['payment_date'] ?? null,
         'status'           => $data['status'] ?? null,
+        'detail_allowance' => $data['detail_allowance'] ?? null,
+        'detail_bonus' => $data['detail_bonus'] ?? null,
+        'detail_deduction' => $data['detail_deduction'] ?? null,
+        'note' => $data['note'] ?? null,
+
         'proof_of_payment' => $data['proof_of_payment'] ?? null,
     ];
 
@@ -90,6 +95,11 @@ public function delete($id)
         $allowance    = isset($_POST['allowance']) && $_POST['allowance'] !== '' ? $_POST['allowance'] : 0;
         $bonus        = isset($_POST['bonus']) && $_POST['bonus'] !== '' ? $_POST['bonus'] : 0;
         $deduction    = isset($_POST['deduction']) && $_POST['deduction'] !== '' ? $_POST['deduction'] : 0;
+        $detail_allowance = isset($_POST['detail_allowance']) && $_POST['detail_allowance'] !== '' ? $_POST['detail_allowance'] : null;
+        $detail_bonus = isset($_POST['detail_bonus']) && $_POST['detail_bonus'] !== '' ? $_POST['detail_bonus'] : null;
+        $detail_deduction = isset($_POST['detail_deduction']) && $_POST['detail_deduction'] !== '' ? $_POST['detail_deduction'] : null;
+        $note = isset($_POST['note']) && $_POST['note'] !== '' ? $_POST['note'] : null;
+
 
         $total_salary = $basic_salary + $allowance + $bonus - $deduction;
 
@@ -127,6 +137,10 @@ public function delete($id)
             'status'            => $_POST['status'] ?? 'pending',
             'proof_of_payment'  => $proof_of_payment_path,
             'created_at'        => time(),
+            'detail_allowance' => $detail_allowance,
+            'detail_bonus' => $detail_bonus,
+            'detail_deduction' => $detail_deduction,
+            'note' => $note
         ];
 
         $result = $this->model->insert($data);
@@ -226,6 +240,19 @@ public function report()
     $year = isset($_GET['year']) ? $_GET['year'] : null;
 
     $result = $this->model->getReport($month, $year);
+
+    header('Content-Type: application/json');
+    echo json_encode($result);
+}
+
+
+public function salarySlip()
+{
+    $month = isset($_GET['month']) ? $_GET['month'] : null;
+    $year = isset($_GET['year']) ? $_GET['year'] : null;
+    $user_uuid = isset($_GET['user_uuid']) ? $_GET['user_uuid'] : null;
+
+    $result = $this->model->getSalarySlip($month, $year, $user_uuid);
 
     header('Content-Type: application/json');
     echo json_encode($result);

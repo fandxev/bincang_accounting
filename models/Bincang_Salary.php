@@ -75,12 +75,16 @@ class Bincang_Salary
                     s.year,
                     s.basic_salary,
                     s.allowance,
+                    s.detail_allowance,
                     s.bonus,
+                    s.detail_bonus,
                     s.deduction,
+                    s.detail_deduction,
                     s.total_salary,
                     s.payment_date,
                     s.status,
                     s.proof_of_payment,
+                    s.note,
                     s.created_at,
                     u_input.user_username AS salary_input_by,
                     u_payee.user_username AS username_payee
@@ -123,6 +127,8 @@ class Bincang_Salary
 
     public function update($salary_uuid, $data)
 {
+
+
     // Ambil data lama dari DB
     $sqlOld = "SELECT * FROM {$this->table} WHERE salary_uuid = :id";
     $stmtOld = $this->conn->prepare($sqlOld);
@@ -151,6 +157,11 @@ class Bincang_Salary
         'payment_date'     => $data['payment_date']     ?? $oldData['payment_date'],
         'status'           => $data['status']           ?? $oldData['status'],
         'proof_of_payment' => $data['proof_of_payment'] ?? $oldData['proof_of_payment'],
+
+     'detail_allowance' => isset($data['detail_allowance']) ? json_encode($data['detail_allowance']) : $oldData['detail_allowance'],
+      'detail_bonus' => isset($data['detail_bonus']) ? json_encode($data['detail_bonus']) : $oldData['detail_allowance'],
+      'detail_deduction' => isset($data['detail_deduction']) ? json_encode($data['detail_deduction']) : $oldData['detail_allowance'],
+        'note' => $data['note'] ?? $oldData['note'],
     ];
 
     // Hitung total_salary
@@ -170,10 +181,18 @@ class Bincang_Salary
         payment_date = :payment_date,
         status = :status,
         proof_of_payment = :proof_of_payment,
+        detail_allowance = :detail_allowance,
+        detail_bonus = :detail_bonus,
+        detail_deduction = :detail_deduction,
+        note = :note,
+
+
+
         updated_at = :updated_at
         WHERE salary_uuid = :id AND deleted_at IS NULL AND deleted_by IS NULL";
 
     $stmt = $this->conn->prepare($sql);
+
 
     $stmt->execute([
         ':user_uuid'        => $mergedData['user_uuid'],
@@ -190,7 +209,18 @@ class Bincang_Salary
         ':proof_of_payment' => $mergedData['proof_of_payment'],
         ':updated_at'       => time(),
         ':id'               => $salary_uuid,
+        ':detail_allowance' => $mergedData['detail_allowance'],
+        ':detail_bonus' => $mergedData['detail_bonus'],
+        ':detail_deduction' => $mergedData['detail_deduction'],
+        ':note' => $mergedData['note'],
     ]);
+
+
+    
+
+
+
+    
 
     $affectedRows = $stmt->rowCount();
 
@@ -215,6 +245,8 @@ class Bincang_Salary
             ];
         }
     }
+
+  
 
     return [
         "status" => "error",
@@ -289,9 +321,9 @@ public function delete($salary_uuid, $deleted_by)
     public function insert($data)
     {
         $sql = "INSERT INTO {$this->table} 
-        (salary_uuid, user_uuid, payee_user_uuid, month, year, basic_salary, allowance, bonus, deduction, total_salary, payment_date, status, proof_of_payment, created_at)
+        (salary_uuid, user_uuid, payee_user_uuid, month, year, basic_salary, allowance, bonus, deduction, total_salary, payment_date, status, proof_of_payment, created_at, detail_allowance, detail_bonus, detail_deduction, note)
         VALUES
-        (:salary_uuid, :user_uuid, :payee_user_uuid, :month, :year, :basic_salary, :allowance, :bonus, :deduction, :total_salary, :payment_date, :status, :proof_of_payment, :created_at)";
+        (:salary_uuid, :user_uuid, :payee_user_uuid, :month, :year, :basic_salary, :allowance, :bonus, :deduction, :total_salary, :payment_date, :status, :proof_of_payment, :created_at,  :detail_allowance, :detail_bonus, :detail_deduction, :note)";
 
         $stmt = $this->conn->prepare($sql);
 
@@ -310,7 +342,12 @@ public function delete($salary_uuid, $deleted_by)
             ':status'             => $data['status'],
             ':proof_of_payment'   => $data['proof_of_payment'],
             ':created_at'         => $data['created_at'],
+            ':detail_allowance' => json_encode($data['detail_allowance']),
+            ':detail_bonus' => json_encode($data['detail_bonus']),
+            ':detail_deduction' => json_encode($data['detail_deduction']),
+            ':note'         => $data['note'],
         ]);
+
 
         if ($stmt->rowCount() > 0) {
             $lastId = $this->conn->lastInsertId();
@@ -505,6 +542,8 @@ public function getReport($month = null, $year = null)
 }
 
 
+
+
 private function formatRoles($rolesJson)
 {
     $roles = json_decode($rolesJson, true);
@@ -516,6 +555,102 @@ private function formatRoles($rolesJson)
 
     return implode(', ', $filteredRoles);
 }
+
+public function getSalarySlip($month = null, $year = null, $user_uuid = null)
+{
+    $where = ["s.deleted_at IS NULL"];
+    $params = [];
+
+    if (!empty($month)) {
+        $where[] = "s.month = :month";
+        $params[':month'] = (int)$month;
+    }
+
+    if (!empty($year)) {
+        $where[] = "s.year = :year";
+        $params[':year'] = (int)$year;
+    }
+
+    if (!empty($user_uuid)) {
+        $where[] = "s.payee_user_uuid = :user_uuid";
+        $params[':user_uuid'] = $user_uuid;
+    }
+
+    $whereSql = '';
+    if (!empty($where)) {
+        $whereSql = " WHERE " . implode(" AND ", $where);
+    }
+
+    $sql = "SELECT 
+                s.basic_salary,
+                s.allowance,
+                s.bonus,
+                s.deduction,
+                s.total_salary,
+                s.detail_allowance,
+                s.detail_bonus,
+                s.detail_deduction,
+                u.user_username AS nama_karyawan,
+                u.user_roles AS jabatan
+            FROM bincang_salary s
+            JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
+            $whereSql
+            ORDER BY s.id DESC
+            LIMIT 1"; 
+
+    $stmt = $this->conn->prepare($sql);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$item) {
+        return [
+            'status' => 'error',
+            'code' => 404,
+            'message' => 'Slip gaji tidak ditemukan.'
+        ];
+    }
+
+    $namaBulan = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+        4 => 'April', 5 => 'Mei', 6 => 'Juni',
+        7 => 'Juli', 8 => 'Agustus', 9 => 'September',
+        10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+
+    $periode = '';
+    if (!empty($month)) {
+        $bulanNama = isset($namaBulan[(int)$month]) ? $namaBulan[(int)$month] : '';
+        $periode = $bulanNama;
+    }
+
+    if (!empty($year)) {
+        $periode .= $periode ? " $year" : $year;
+    }
+
+    return [
+        'status' => 'success',
+        'code' => 200,
+        'periode' => $periode,
+        'data' => [
+            'nama_karyawan' => $item['nama_karyawan'],
+            'jabatan' => $this->formatRoles($item['jabatan']),
+            'gaji_pokok' => (float)$item['basic_salary'],
+            'tunjangan' => (float)$item['allowance'],
+            'bonus' => (float)$item['bonus'],
+            'potongan' => (float)$item['deduction'],
+            'total_gaji' => (float)$item['total_salary'],
+            'rincian_tunjangan' => $item['detail_allowance'],
+            'rincian_bonus' => $item['detail_bonus'],
+            'rincian_potongan' => $item['detail_deduction'],
+        ]
+    ];
+}
+
 
 
 }
