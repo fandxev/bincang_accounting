@@ -86,10 +86,10 @@ public function delete($id)
     public function post()
     {
         // Hitung total salary
-        $basic_salary = $_POST['basic_salary'] ?? 0;
-        $allowance = $_POST['allowance'] ?? 0;
-        $bonus = $_POST['bonus'] ?? 0;
-        $deduction = $_POST['deduction'] ?? 0;
+        $basic_salary = isset($_POST['basic_salary']) && $_POST['basic_salary'] !== '' ? $_POST['basic_salary'] : 0;
+        $allowance    = isset($_POST['allowance']) && $_POST['allowance'] !== '' ? $_POST['allowance'] : 0;
+        $bonus        = isset($_POST['bonus']) && $_POST['bonus'] !== '' ? $_POST['bonus'] : 0;
+        $deduction    = isset($_POST['deduction']) && $_POST['deduction'] !== '' ? $_POST['deduction'] : 0;
 
         $total_salary = $basic_salary + $allowance + $bonus - $deduction;
 
@@ -218,6 +218,17 @@ public function delete($id)
     } else {
         errorResponse(500, "Gagal memperbarui referensi gambar di database");
     }
+}
+
+public function report()
+{
+    $month = isset($_GET['month']) ? $_GET['month'] : null;
+    $year = isset($_GET['year']) ? $_GET['year'] : null;
+
+    $result = $this->model->getReport($month, $year);
+
+    header('Content-Type: application/json');
+    echo json_encode($result);
 }
 
 }

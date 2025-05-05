@@ -409,4 +409,113 @@ public function findById($id)
 }
 
 
+public function getReport($month = null, $year = null)
+{
+    $where = ["s.deleted_at IS NULL"];
+    $params = [];
+
+    if (!empty($month)) {
+        $where[] = "s.month = :month";
+        $params[':month'] = (int)$month;
+    }
+
+    if (!empty($year)) {
+        $where[] = "s.year = :year";
+        $params[':year'] = (int)$year;
+    }
+
+    $whereSql = '';
+    if (!empty($where)) {
+        $whereSql = " WHERE " . implode(" AND ", $where);
+    }
+
+    $sql = "SELECT 
+                s.basic_salary,
+                s.allowance,
+                s.bonus,
+                s.deduction,
+                s.total_salary,
+                u.user_username AS nama_karyawan,
+                u.user_roles AS jabatan
+            FROM bincang_salary s
+            JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
+            $whereSql
+            ORDER BY s.id ASC";
+
+    $stmt = $this->conn->prepare($sql);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_INT);
+    }
+
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $result = [];
+    $no = 1;
+    $totalKeseluruhan = 0;
+
+    foreach ($data as $item) {
+        $result[] = [
+            'no' => $no++,
+            'nama_karyawan' => $item['nama_karyawan'],
+            'jabatan' => $this->formatRoles($item['jabatan']),
+            'gaji_pokok' => (float)$item['basic_salary'],
+            'tunjangan' => (float)$item['allowance'],
+            'bonus' => (float)$item['bonus'],
+            'potongan' => (float)$item['deduction'],
+            'total_gaji' => (float)$item['total_salary'],
+        ];
+        $totalKeseluruhan += $item['total_salary'];
+    }
+
+    $namaBulan = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+        4 => 'April', 5 => 'Mei', 6 => 'Juni',
+        7 => 'Juli', 8 => 'Agustus', 9 => 'September',
+        10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+
+    $periode = null;
+    // if (!empty($month) && !empty($year)) {
+    //     $bulanNama = isset($namaBulan[(int)$month]) ? $namaBulan[(int)$month] : '';
+    //     $periode = $bulanNama . ' ' . $year;
+    // }
+
+        if (!empty($month)) {
+        $bulanNama = isset($namaBulan[(int)$month]) ? $namaBulan[(int)$month] : '';
+        $periode = $bulanNama;
+    }
+
+    if (!empty($year)) {
+        if(strlen($periode) > 1)
+       $periode .= " ".$year;
+        else
+        $periode .= $year;
+    }
+
+    return [
+        'status' => 'success',
+        'code' => 200,
+        'periode' => $periode,
+        'total_data' => count($result),
+        'total_gaji_keseluruhan' => $totalKeseluruhan,
+        'data' => $result
+    ];
+}
+
+
+private function formatRoles($rolesJson)
+{
+    $roles = json_decode($rolesJson, true);
+    if (!is_array($roles)) return '';
+
+    $filteredRoles = array_filter($roles, function($role) {
+        return $role !== 'user';
+    });
+
+    return implode(', ', $filteredRoles);
+}
+
+
 }
