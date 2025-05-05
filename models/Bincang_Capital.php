@@ -637,4 +637,88 @@ class Bincang_Capital
             ':updated_at' => time()
         ]);
     }
+
+    public function getCapitalReport($startDate = null, $endDate = null)
+{
+    $where = ["c.deleted_at IS NULL"];
+    $params = [];
+
+    if (!empty($startDate) && empty($endDate)) {
+        $startTime = strtotime($startDate . " 00:00:00");
+        $endTime = strtotime($startDate . " 23:59:59");
+        $where[] = "c.created_at BETWEEN :startTime AND :endTime";
+        $params[':startTime'] = $startTime;
+        $params[':endTime'] = $endTime;
+    } elseif (!empty($startDate) && !empty($endDate)) {
+        $startTime = strtotime($startDate . " 00:00:00");
+        $endTime = strtotime($endDate . " 23:59:59");
+        $where[] = "c.created_at BETWEEN :startTime AND :endTime";
+        $params[':startTime'] = $startTime;
+        $params[':endTime'] = $endTime;
+    }
+
+    $whereSql = '';
+    if (!empty($where)) {
+        $whereSql = " WHERE " . implode(" AND ", $where);
+    }
+
+    $sql = "SELECT 
+                c.capital_uuid,
+                c.type_transaction,
+                c.amount,
+                c.description,
+                c.created_at,
+                u.user_username AS input_by
+            FROM {$this->table} c
+            JOIN bincang_user u ON c.user_uuid = u.user_uuid
+            $whereSql
+            ORDER BY c.created_at ASC";
+
+    $stmt = $this->conn->prepare($sql);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $result = [];
+    $totalIncome = 0;
+    $totalExpense = 0;
+
+    foreach ($data as $item) {
+        if ($item['type_transaction'] === 'income') {
+            $totalIncome += $item['amount'];
+        } elseif ($item['type_transaction'] === 'expense') {
+            $totalExpense += $item['amount'];
+        }
+
+        date_default_timezone_set('Asia/Jakarta');
+        $formattedDate = date('d F Y H:i:s', $item['created_at']);
+        setlocale(LC_TIME, 'id_ID.UTF-8'); // opsional jika locale didukung server
+        $tanggal = strftime('%d %B %Y %H:%M:%S', $item['created_at']);
+
+        $result[] = [
+            'capital_uuid' => $item['capital_uuid'],
+            'type_transaction' => $item['type_transaction'],
+            'amount' => (float)$item['amount'],
+            'description' => $item['description'],
+            'input_by' => $item['input_by'],
+            'tanggal' => $tanggal
+        ];
+    }
+
+    $lastCapital = $totalIncome - $totalExpense;
+
+    return [
+        'status' => 'success',
+        'code' => 200,
+        'total_income' => $totalIncome,
+        'total_expense' => $totalExpense,
+        'total_capital_terakhir' => $lastCapital,
+        'data' => $result
+    ];
+}
+
 }
