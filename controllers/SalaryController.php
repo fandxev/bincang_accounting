@@ -133,7 +133,7 @@ public function delete($id)
             'bonus'             => $bonus,
             'deduction'         => $deduction,
             'total_salary'      => $total_salary,
-            'payment_date'      => $_POST['payment_date'] ?? null,
+            'payment_date'      =>  !empty($_POST['payment_date']) ? $_POST['payment_date'] : null,
             'status'            => $_POST['status'] ?? 'pending',
             'proof_of_payment'  => $proof_of_payment_path,
             'created_at'        => time(),

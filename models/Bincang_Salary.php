@@ -467,17 +467,18 @@ public function getReport($month = null, $year = null)
     }
 
     $sql = "SELECT 
-                s.basic_salary,
-                s.allowance,
-                s.bonus,
-                s.deduction,
-                s.total_salary,
-                u.user_username AS nama_karyawan,
-                u.user_roles AS jabatan
-            FROM bincang_salary s
-            JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
-            $whereSql
-            ORDER BY s.id ASC";
+            s.basic_salary,
+            s.allowance,
+            s.bonus,
+            s.deduction,
+            s.total_salary,
+            CONCAT(p.profile_first_name, ' ', p.profile_last_name) AS nama_karyawan,
+            u.user_roles AS jabatan
+        FROM bincang_salary s
+        JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
+        JOIN bincang_user_profile p ON u.user_uuid = p.profile_user_uuid
+        $whereSql
+        ORDER BY s.id ASC";
 
     $stmt = $this->conn->prepare($sql);
 
@@ -590,10 +591,11 @@ public function getSalarySlip($month = null, $year = null, $user_uuid = null)
                 s.detail_allowance,
                 s.detail_bonus,
                 s.detail_deduction,
-                u.user_username AS nama_karyawan,
+            CONCAT(p.profile_first_name, ' ', p.profile_last_name) AS nama_karyawan,
                 u.user_roles AS jabatan
             FROM bincang_salary s
             JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
+            JOIN bincang_user_profile p ON u.user_uuid = p.profile_user_uuid
             $whereSql
             ORDER BY s.id DESC
             LIMIT 1"; 
