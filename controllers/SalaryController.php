@@ -5,10 +5,12 @@ require_once './models/Bincang_Salary.php';
 class SalaryController
 {
     private $model;
+    private $conn;
 
-    public function __construct($db)
+    public function __construct($conn)
     {
-        $this->model = new Bincang_Salary($db);
+        $this->conn = $conn;
+        $this->model = new Bincang_Salary($conn);
     }
 
     public function index() {}
@@ -55,7 +57,7 @@ class SalaryController
         'proof_of_payment' => $data['proof_of_payment'] ?? null,
     ];
 
-    $result = $this->model->update($id, $updateData);
+    $result = $this->model->update($id, $updateData,$data['update_by']);
     if ($result) {
         header('Content-Type: application/json');
         echo json_encode($result);
@@ -155,6 +157,7 @@ public function delete($id)
 
     public function recover($id)
     {
+
         if (!$id) {
             errorResponse(400, "id salary tidak boleh kosong");
             return;
@@ -164,7 +167,7 @@ public function delete($id)
 
         $salary_uuid = $id;
 
-        $result = $this->model->recover($salary_uuid);
+        $result = $this->model->recover($salary_uuid,$_GET['recover_by']);
 
         if ($result) {
             header('Content-Type: application/json');
@@ -182,6 +185,13 @@ public function delete($id)
 
     public function updateProofImage($salary_id)
 {
+
+        $userIsNotAccountant =  isAccountant($_POST['update_by'],$this->conn);
+        if(!empty($userIsNotAccountant)){
+            echo json_encode($userIsNotAccountant);
+            return;
+        }
+
 
     if (!$salary_id || !isset($_FILES['proof_of_payment']) || $_FILES['proof_of_payment']['error'] !== UPLOAD_ERR_OK) {
         errorResponse(400, "ID gaji dan file bukti pembayaran wajib diisi dan valid");

@@ -125,9 +125,13 @@ class Bincang_Salary
         ];
     }
 
-    public function update($salary_uuid, $data)
+    public function update($salary_uuid, $data, $update_by)
 {
 
+        $userIsNotAccountant =  isAccountant($update_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
 
     // Ambil data lama dari DB
     $sqlOld = "SELECT * FROM {$this->table} WHERE salary_uuid = :id";
@@ -258,6 +262,11 @@ class Bincang_Salary
 
 public function delete($salary_uuid, $deleted_by)
     {
+
+        $userIsNotAccountant =  isAccountant($deleted_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
         // Ambil data sebelum update
         $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
         FROM {$this->table} s
@@ -320,6 +329,12 @@ public function delete($salary_uuid, $deleted_by)
 
     public function insert($data)
     {
+
+        $userIsNotAccountant =  isAccountant($data['user_uuid'],$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
+
         $sql = "INSERT INTO {$this->table} 
         (salary_uuid, user_uuid, payee_user_uuid, month, year, basic_salary, allowance, bonus, deduction, total_salary, payment_date, status, proof_of_payment, created_at, detail_allowance, detail_bonus, detail_deduction, note)
         VALUES
@@ -374,8 +389,14 @@ public function delete($salary_uuid, $deleted_by)
         }
     }
 
-    public function recover($salary_uuid)
+    public function recover($salary_uuid, $recover_by)
     {
+
+        $userIsNotAccountant =  isAccountant($recover_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
+
         // Ambil data sebelum update
         $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
         FROM {$this->table} s
@@ -423,7 +444,7 @@ public function delete($salary_uuid, $deleted_by)
         return [
             "status" => "error",
             "code"   => 500,
-            "message" => "Gagal menghapus data."
+            "message" => "Gagal gagal mengembalikan data."
         ];
     }
 

@@ -99,7 +99,7 @@ class CapitalController
             'user_uuid'        => $new_user_uuid,
         ];
 
-        $result = $this->model->update($id, $updateData);
+        $result = $this->model->update($id, $updateData, $data['update_by']);
         if ($result) {
             header('Content-Type: application/json');
             echo json_encode($result);
@@ -168,7 +168,7 @@ class CapitalController
 
         $capital_uuid = $id;
 
-        $result = $this->model->recover($capital_uuid);
+        $result = $this->model->recover($capital_uuid, $_GET['recover_by']);
 
         if ($result) {
             header('Content-Type: application/json');
@@ -194,6 +194,17 @@ class CapitalController
     $endDate = isset($_GET['endDate']) ? $_GET['endDate'] : null;
 
     $result = $this->model->getCapitalReport($startDate, $endDate);
+
+    header('Content-Type: application/json');
+    echo json_encode($result);
+}
+
+
+    public function annualReport()
+{
+     $year = isset($_GET['year']) ? $_GET['year'] : null;
+
+    $result = $this->model->getCapitalReportByYear($year);
 
     header('Content-Type: application/json');
     echo json_encode($result);

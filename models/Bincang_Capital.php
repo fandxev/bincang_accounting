@@ -94,8 +94,15 @@ class Bincang_Capital
     }
 
 
+
     public function insert($data)
     {
+       $userIsNotAccountant =  isAccountant($data['user_uuid'],$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
+
+
         $sql = "INSERT INTO {$this->table} 
         (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at)
         VALUES
@@ -148,8 +155,14 @@ class Bincang_Capital
         ];
     }
 
-    public function update($capital_uuid, $data)
+    public function update($capital_uuid, $data,$update_by)
     {
+
+       $userIsNotAccountant =  isAccountant($update_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
+
         // Ambil data lama dari DB
         $sqlOld = "SELECT * FROM {$this->table} WHERE capital_uuid = :id";
         $stmtOld = $this->conn->prepare($sqlOld);
@@ -262,7 +275,7 @@ class Bincang_Capital
     }
 
 
-    public function deletePermanently($capital_uuid)
+    public function deletePermanentlyInactive($capital_uuid)
     {
         // Ambil data sebelum dihapus
         $sqlSelect = "SELECT c.*, u.user_username 
@@ -311,6 +324,11 @@ class Bincang_Capital
 
     public function delete($capital_uuid, $deleted_by)
     {
+
+               $userIsNotAccountant =  isAccountant($deleted_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
         // Ambil data sebelum update
         $sqlSelect = "SELECT c.*, u.user_username 
                   FROM {$this->table} c
@@ -430,8 +448,15 @@ class Bincang_Capital
     }
 
 
-    public function recover($capital_uuid)
+    public function recover($capital_uuid, $recover_by)
     {
+
+        $userIsNotAccountant =  isAccountant($recover_by,$this->conn);
+        if(!empty($userIsNotAccountant)){
+            return $userIsNotAccountant;
+        }
+
+
         // Ambil data sebelum update
         $sqlSelect = "SELECT c.*, u.user_username 
                   FROM {$this->table} c
@@ -720,5 +745,84 @@ class Bincang_Capital
         'data' => $result
     ];
 }
+
+
+public function getCapitalReportByYear($year = null)
+{
+
+    echo "oyiiisaaamm";
+    $where = ["c.deleted_at IS NULL"];
+    $params = [];
+
+    if (!empty($year)) {
+        $startTime = strtotime("{$year}-01-01 00:00:00");
+        $endTime = strtotime("{$year}-12-31 23:59:59");
+        $where[] = "c.created_at BETWEEN :startTime AND :endTime";
+        $params[':startTime'] = $startTime;
+        $params[':endTime'] = $endTime;
+    }
+
+    $whereSql = '';
+    if (!empty($where)) {
+        $whereSql = " WHERE " . implode(" AND ", $where);
+    }
+
+    $sql = "SELECT 
+                c.capital_uuid,
+                c.type_transaction,
+                c.amount,
+                c.description,
+                c.created_at,
+                u.user_username AS input_by
+            FROM {$this->table} c
+            JOIN bincang_user u ON c.user_uuid = u.user_uuid
+            $whereSql
+            ORDER BY c.created_at ASC";
+
+    $stmt = $this->conn->prepare($sql);
+
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_STR);
+    }
+
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $result = [];
+    $totalIncome = 0;
+    $totalExpense = 0;
+
+    foreach ($data as $item) {
+        if ($item['type_transaction'] === 'income') {
+            $totalIncome += $item['amount'];
+        } elseif ($item['type_transaction'] === 'expense') {
+            $totalExpense += $item['amount'];
+        }
+
+        date_default_timezone_set('Asia/Jakarta');
+        $tanggal = strftime('%d %B %Y %H:%M:%S', $item['created_at']);
+
+        $result[] = [
+            'capital_uuid' => $item['capital_uuid'],
+            'type_transaction' => $item['type_transaction'],
+            'amount' => (float)$item['amount'],
+            'description' => $item['description'],
+            'input_by' => $item['input_by'],
+            'tanggal' => $tanggal
+        ];
+    }
+
+    $lastCapital = $totalIncome - $totalExpense;
+
+    return [
+        'status' => 'success',
+        'code' => 200,
+        'total_income' => $totalIncome,
+        'total_expense' => $totalExpense,
+        'total_capital_terakhir' => $lastCapital,
+        'data' => $result
+    ];
+}
+
 
 }
