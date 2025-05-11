@@ -203,14 +203,14 @@ public function delete($id)
 
         $pdfPath = $this->generateSalarySlipPDF($salaryData);
 
-        // Simpan referensi file PDF ke database
+        // Simpan referensi file PDF ke db
         $updateStmt = $this->model->conn->prepare("UPDATE bincang_salary SET pdf_payslip = :pdf WHERE salary_uuid = :uuid");
         $updateStmt->execute([
             ':pdf' => $pdfPath,
             ':uuid' => $salaryData['salary_uuid']
         ]);
 
-        // Tambahkan path ke response jika ingin
+     
         $salaryData['pdf_payslip'] = $pdfPath;
         $result['data'] = $salaryData;
     }
@@ -266,7 +266,7 @@ public function delete($id)
         return;
     }
 
-    // Cek data lama dari database
+    // Cek data lama dari db
     $existing = $this->model->findById($salary_id);
     if (!$existing) {
         errorResponse(404, "Data gaji tidak ditemukan");
@@ -340,7 +340,7 @@ public function salarySlip()
 
 public function generateSalarySlipPDF($salaryData, $pathReplaceName = "")
 {
-    // Setup Dompdf
+    // Setup Dompdf untuk generate PDF
     $options = new Options();
     $options->set('isHtml5ParserEnabled', true);
     $options->set('isRemoteEnabled', true);
@@ -482,7 +482,7 @@ public function generateSalarySlipPDF($salaryData, $pathReplaceName = "")
         $fileName = 'slip_gaji_' . $namaPegawai . '_' . $namaBulanSlug . '_' . $salaryData['year'] . '.pdf';
         $filePath = $pdfDir . $fileName;
 
-        // Jika file sudah ada, tambahkan counter
+        // Jika file sudah ada, tambahkan increment
         $counter = 1;
         while (file_exists($filePath)) {
             $fileName = 'slip_gaji_' . $namaPegawai . '_' . $namaBulanSlug . '_' . $salaryData['year'] . '_' . $counter . '.pdf';
@@ -526,13 +526,12 @@ function formatTanggalIndonesia($tanggal) {
 
 public function downloadSalarySlip($id)
 {
-    // Cek apakah ID tersedia
     if (!$id) {
         errorResponse(400, "ID gaji tidak boleh kosong");
         return;
     }
 
-    // Ambil data gaji berdasarkan ID
+
     $salaryData = $this->model->findById($id);
 
 

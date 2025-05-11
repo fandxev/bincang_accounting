@@ -21,7 +21,7 @@ class Bincang_Salary
         $where = ["s.deleted_at IS NULL"];
         $params = [];
     
-        // Filter pencarian
+        // filter pencarian
         if (!empty($search)) {
             $where[] = "(s.month LIKE :search
                      OR s.year LIKE :search
@@ -36,7 +36,7 @@ class Bincang_Salary
             $params[':search'] = '%' . $search . '%';
         }
     
-        // Filter tanggal
+        // filter tanggal
         if (!empty($startDate) && empty($endDate)) {
             $startTime = strtotime($startDate . " 00:00:00");
             $endTime = strtotime($startDate . " 23:59:59");
@@ -133,7 +133,7 @@ class Bincang_Salary
             return $userIsNotAccountant;
         }
 
-    // Ambil data lama dari DB
+    // ambil data lama dari DB
     $sqlOld = "SELECT * FROM {$this->table} WHERE salary_uuid = :id";
     $stmtOld = $this->conn->prepare($sqlOld);
     $stmtOld->bindValue(':id', $salary_uuid);
@@ -148,7 +148,7 @@ class Bincang_Salary
         return errorResponse("404", "Data tidak ditemukan");
     }
 
-    // Merge data baru dengan data lama
+    // merge data baru dengan data lama
     $mergedData = [
         'user_uuid'        => $data['user_uuid']        ?? $oldData['user_uuid'],
         'payee_user_uuid'  => $data['payee_user_uuid']  ?? $oldData['payee_user_uuid'],
@@ -171,7 +171,7 @@ class Bincang_Salary
     // Hitung total_salary
     $total_salary = $mergedData['basic_salary'] + $mergedData['allowance'] + $mergedData['bonus'] - $mergedData['deduction'];
 
-    // Jalankan update
+    // do update
     $sql = "UPDATE {$this->table} SET 
         user_uuid = :user_uuid,
         payee_user_uuid = :payee_user_uuid,
@@ -267,7 +267,7 @@ public function delete($salary_uuid, $deleted_by)
         if(!empty($userIsNotAccountant)){
             return $userIsNotAccountant;
         }
-        // Ambil data sebelum update
+        // ambil data sebelum update
         $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
         FROM {$this->table} s
         LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid

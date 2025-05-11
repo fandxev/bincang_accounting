@@ -226,7 +226,7 @@ class Bincang_Capital
             $this->syncLastCapitalAfterUpdate($capital_uuid, $oldData['type_transaction'], $oldData['amount'], $data['type_transaction'], $data['amount']);
 
 
-            // Ambil kembali data yang telah diperbarui
+            // ambil kembali data yang telah diperbarui
             $sqlSelect = "SELECT c.*, u.user_username 
                       FROM {$this->table} c
                       JOIN bincang_user u ON c.user_uuid = u.user_uuid
@@ -277,7 +277,7 @@ class Bincang_Capital
 
     public function deletePermanentlyInactive($capital_uuid)
     {
-        // Ambil data sebelum dihapus
+        // ambil data sebelum dihapus
         $sqlSelect = "SELECT c.*, u.user_username 
                   FROM {$this->table} c
                   JOIN bincang_user u ON c.user_uuid = u.user_uuid
@@ -299,7 +299,7 @@ class Bincang_Capital
             ];
         }
 
-        // Hapus data
+        // hapus data
         $sqlDelete = "DELETE FROM {$this->table} WHERE capital_uuid = :capital_uuid";
         $stmtDelete = $this->conn->prepare($sqlDelete);
         $success = $stmtDelete->execute([':capital_uuid' => $capital_uuid]);
@@ -329,7 +329,7 @@ class Bincang_Capital
         if(!empty($userIsNotAccountant)){
             return $userIsNotAccountant;
         }
-        // Ambil data sebelum update
+        // ambil data sebelum update (delete)
         $sqlSelect = "SELECT c.*, u.user_username 
                   FROM {$this->table} c
                   JOIN bincang_user u ON c.user_uuid = u.user_uuid
@@ -388,7 +388,7 @@ class Bincang_Capital
 
     public function insertOrUpdateTotalCapital($type_transaction, $amount)
     {
-        // Ambil baris pertama (hanya ada satu row)
+        // ambil baris pertama (hanya ada satu row)
         $sqlCheck = "SELECT total_capital FROM {$this->tableTotalCapital} LIMIT 1";
         $stmtCheck = $this->conn->prepare($sqlCheck);
         $stmtCheck->execute();
@@ -398,7 +398,7 @@ class Bincang_Capital
 
         if ($type_transaction === "income") {
             if ($existing) {
-                // Sudah ada, maka tambahkan
+                // sudah ada, maka tambahkan
                 $newTotal = $existing['total_capital'] + $amount;
 
                 $sqlUpdate = "UPDATE {$this->tableTotalCapital} 
@@ -409,7 +409,7 @@ class Bincang_Capital
                     ':updated_at'    => $timestamp
                 ]);
             } else {
-                // Belum ada, maka insert
+                // belum ada, maka insert
                 $sqlInsert = "INSERT INTO {$this->tableTotalCapital} 
                           (total_capital, created_at, updated_at) 
                           VALUES (:total_capital, :created_at, :updated_at)";
@@ -422,7 +422,7 @@ class Bincang_Capital
             }
         } else if ($type_transaction === "expense") {
             if ($existing) {
-                // Sudah ada, maka kurangi
+                // sudah ada, maka kurangi
                 $newTotal = $existing['total_capital'] - $amount;
 
                 $sqlUpdate = "UPDATE {$this->tableTotalCapital} 
@@ -433,7 +433,7 @@ class Bincang_Capital
                     ':updated_at'    => $timestamp
                 ]);
             } else {
-                // Belum ada, maka insert dengan nilai negatif
+                // belum ada, maka insert dengan nilai negatif
                 $sqlInsert = "INSERT INTO {$this->tableTotalCapital} 
                           (total_capital, created_at, updated_at) 
                           VALUES (:total_capital, :created_at, :updated_at)";
@@ -457,7 +457,7 @@ class Bincang_Capital
         }
 
 
-        // Ambil data sebelum update
+        // ambil data sebelum update
         $sqlSelect = "SELECT c.*, u.user_username 
                   FROM {$this->table} c
                   JOIN bincang_user u ON c.user_uuid = u.user_uuid
@@ -528,7 +528,7 @@ class Bincang_Capital
 
 
 
-        // Ambil ID dari baris yang diubah
+        // ambil ID dari baris yang diubah
         $sqlFind = "SELECT id FROM {$this->table} 
                 WHERE capital_uuid = :capital_uuid 
                 ORDER BY id DESC LIMIT 1";
@@ -539,7 +539,7 @@ class Bincang_Capital
         if ($row && isset($row['id'])) {
             $currentId = $row['id'];
 
-            // Update semua baris setelahnya
+            // update semua baris setelahnya
             $sqlUpdate = "UPDATE {$this->table}
                       SET last_capital = last_capital + :diff
                       WHERE capital_uuid = :capital_uuid OR id > :current_id";
@@ -553,7 +553,7 @@ class Bincang_Capital
         }
 
 
-        // Update total capital di tabel bincang_capital_total
+        // update total capital di tabel bincang_capital_total
 
         $sqlUpdateTotal = "UPDATE {$this->tableTotalCapital}
                        SET total_capital = total_capital + :diff,
@@ -588,7 +588,7 @@ class Bincang_Capital
                 $delete_amount = +abs($row['amount']);
             }
 
-            // Update semua baris setelahnya
+            // update semua baris setelahnya
             $sqlUpdate = "UPDATE {$this->table}
                       SET last_capital = last_capital - :deletion
                       WHERE  id > :current_id";
@@ -601,7 +601,7 @@ class Bincang_Capital
         }
 
 
-        // Update total capital di tabel bincang_capital_total
+        // update total capital di tabel bincang_capital_total
 
         $sqlUpdateTotal = "UPDATE {$this->tableTotalCapital}
                        SET total_capital = total_capital - :deletion,
@@ -636,7 +636,7 @@ class Bincang_Capital
                 $recover_amount = abs($row['amount']);
             }
 
-            // Update semua baris setelahnya
+            // update semua baris setelahnya
             $sqlUpdate = "UPDATE {$this->table}
                       SET last_capital = last_capital + :recover
                       WHERE  id > :current_id";
@@ -649,7 +649,7 @@ class Bincang_Capital
         }
 
 
-        // Update total capital di tabel bincang_capital_total
+        // update total capital di tabel bincang_capital_total
 
         $sqlUpdateTotal = "UPDATE {$this->tableTotalCapital}
                        SET total_capital = total_capital + :recover,
@@ -721,7 +721,7 @@ class Bincang_Capital
 
         date_default_timezone_set('Asia/Jakarta');
         $formattedDate = date('d F Y H:i:s', $item['created_at']);
-        setlocale(LC_TIME, 'id_ID.UTF-8'); // opsional jika locale didukung server
+        setlocale(LC_TIME, 'id_ID.UTF-8'); 
         $tanggal = strftime('%d %B %Y %H:%M:%S', $item['created_at']);
 
         $result[] = [
