@@ -1,7 +1,7 @@
 <?php
 class Bincang_Salary
 {
-    private $conn;
+    public $conn;
     private $table = 'bincang_salary';
     private $base_url = 'bincang_accounting';
 
@@ -367,10 +367,11 @@ public function delete($salary_uuid, $deleted_by)
         if ($stmt->rowCount() > 0) {
             $lastId = $this->conn->lastInsertId();
 
-            $sqlSelect = "SELECT s.*, u.user_username as salary_input_by, p.user_username as username_payee
+            $sqlSelect = "SELECT s.*, u.user_username as salary_input_by,           CONCAT(up.profile_first_name, ' ', up.profile_last_name) AS nama_karyawan
                       FROM {$this->table} s
                       LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
                       LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+                      JOIN bincang_user_profile up ON  s.payee_user_uuid = up.profile_user_uuid
                       WHERE s.id = :id";
 
             $stmtSelect = $this->conn->prepare($sqlSelect);
@@ -459,7 +460,16 @@ public function delete($salary_uuid, $deleted_by)
 
 public function findById($id)
 {
-    $sql = "SELECT * FROM {$this->table} WHERE salary_uuid = :id LIMIT 1";
+   $sql = "SELECT 
+            s.*,
+            CONCAT(p.profile_first_name, ' ', p.profile_last_name) AS nama_karyawan,
+            u.user_roles AS jabatan
+        FROM bincang_salary s
+        JOIN bincang_user u ON s.payee_user_uuid = u.user_uuid
+        JOIN bincang_user_profile p ON u.user_uuid = p.profile_user_uuid
+        WHERE salary_uuid = :id
+        ORDER BY s.id ASC
+        LIMIT 1";
     $stmt = $this->conn->prepare($sql);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
@@ -673,6 +683,9 @@ public function getSalarySlip($month = null, $year = null, $user_uuid = null)
         ]
     ];
 }
+
+
+
 
 
 

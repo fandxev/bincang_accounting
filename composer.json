@@ -1,5 +1,7 @@
 {
     "require": {
-        "ramsey/uuid": "^4.7"
+        "ramsey/uuid": "^4.7",
+        "mpdf/mpdf": "^8.2",
+        "dompdf/dompdf": "^3.1"
     }
 }
