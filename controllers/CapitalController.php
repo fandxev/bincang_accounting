@@ -210,4 +210,6 @@ class CapitalController
     echo json_encode($result);
 }
 
+    
+
 }

@@ -180,6 +180,8 @@ class Bincang_Capital
 
         // Gabungkan data lama dengan data baru (data baru akan menimpa yang lama)
 
+
+
         $mergedData['type_transaction'] = (isset($data['type_transaction'])) ? $data['type_transaction'] : $oldData['type_transaction'];
         $mergedData['purchase_uuid'] = (isset($data['purchase_uuid'])) ? $data['purchase_uuid'] : $oldData['purchase_uuid'];
         $mergedData['amount'] = (isset($data['amount'])) ? $data['amount'] : $oldData['amount'];
@@ -223,7 +225,13 @@ class Bincang_Capital
         if ($affectedRows > 0) {
 
             //singkronisasi data capital setelah ada update
-            $this->syncLastCapitalAfterUpdate($capital_uuid, $oldData['type_transaction'], $oldData['amount'], $data['type_transaction'], $data['amount']);
+            $previous_type_transaction = $oldData['type_transaction'];
+            $previous_amount = $oldData['amount'];
+            $new_type_transaction = $data['type_transaction'] ?? $oldData['type_transaction'];
+            $new_amount = $data['amount'] ?? $oldData['amount'];
+
+
+            $this->syncLastCapitalAfterUpdate($capital_uuid, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount);
 
 
             // ambil kembali data yang telah diperbarui
@@ -512,6 +520,11 @@ class Bincang_Capital
     public function syncLastCapitalAfterUpdate($uuid_capital, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount)
     {
 
+        if(($previous_amount == $new_amount)&&($previous_type_transaction == $new_type_transaction)){
+            return;
+        }
+        else{
+
         $difference_amount = 0;
         if ($previous_type_transaction == "expense") {
             $previous_amount = -abs($previous_amount);
@@ -524,8 +537,6 @@ class Bincang_Capital
 
 
         $difference_amount = $new_amount - $previous_amount;
-
-
 
 
         // ambil ID dari baris yang diubah
@@ -565,6 +576,7 @@ class Bincang_Capital
             ':diff' => $difference_amount,
             ':updated_at' => time()
         ]);
+    }
     }
 
     public function syncLastCapitalAfterDelete($uuid_capital)
