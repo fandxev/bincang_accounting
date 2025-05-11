@@ -524,6 +524,57 @@ function formatTanggalIndonesia($tanggal) {
     return $dt->format('d') . ' ' . $bulan[$dt->format('F')] . ' ' . $dt->format('Y');
 }
 
+public function downloadSalarySlip($id)
+{
+    // Cek apakah ID tersedia
+    if (!$id) {
+        errorResponse(400, "ID gaji tidak boleh kosong");
+        return;
+    }
+
+    // Ambil data gaji berdasarkan ID
+    $salaryData = $this->model->findById($id);
+
+
+    
+    if (!$salaryData) {
+        errorResponse(404, "Data gaji tidak ditemukan");
+        return;
+    }
+
+
+if(empty($salaryData['pdf_payslip']))
+{
+    echo "pdf _payslip empty: ".$salaryData['pdf_payslip'];
+}
+
+if(!file_exists($salaryData['pdf_payslip'])){
+    echo "file tidak ditemukan";
+}
+
+
+    // Cek apakah PDF tersedia
+    if (empty($salaryData['pdf_payslip']) || !file_exists($salaryData['pdf_payslip'])) {
+        errorResponse(404, "PDF slip gaji tidak ditemukan");
+        return;
+    }
+
+
+    // Ambil path file PDF
+    $pdfPath = __DIR__ . '/../' . $salaryData['pdf_payslip'];
+
+    $fileName = basename($salaryData['pdf_payslip']);
+
+    // Set header untuk download file PDF
+    header('Content-Type: application/pdf');
+header('Content-Disposition: attachment; filename="' . $fileName . '"');
+    header('Content-Length: ' . filesize($pdfPath));
+
+    // Baca dan kirimkan file PDF ke browser
+    readfile($pdfPath);
+}
+
+
 
 
 

@@ -471,7 +471,7 @@ public function findById($id)
         ORDER BY s.id ASC
         LIMIT 1";
     $stmt = $this->conn->prepare($sql);
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->bindValue(':id', $id, PDO::PARAM_STR);
     $stmt->execute();
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
