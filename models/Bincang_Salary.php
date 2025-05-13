@@ -3,6 +3,7 @@ class Bincang_Salary
 {
     public $conn;
     private $table = 'bincang_salary';
+    private $table_capital = 'bincang_capital';
     private $base_url = 'bincang_accounting';
 
     public function __construct($conn)
@@ -148,6 +149,9 @@ class Bincang_Salary
         return errorResponse("404", "Data tidak ditemukan");
     }
 
+   
+
+
     // merge data baru dengan data lama
     $mergedData = [
         'user_uuid'        => $data['user_uuid']        ?? $oldData['user_uuid'],
@@ -240,6 +244,7 @@ class Bincang_Salary
         $item = $stmtSelect->fetch(PDO::FETCH_ASSOC);
 
         if ($item) {
+
             date_default_timezone_set('Asia/Jakarta');
             $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
             return [
@@ -325,7 +330,103 @@ public function delete($salary_uuid, $deleted_by)
         ];
     }
 
+    public function deleteCapital($capital_uuid, $deleted_by)
+    {  require_once 'Bincang_Capital.php';
+       echo "debug_deleteCapital";
+        $capitalModel = new Bincang_Capital($this->conn);
+
+       $capitalModel->delete($capital_uuid, $deleted_by);
+
+    }
+
+    public function syncLastCapitalAfterRecover($capital_uuid){
+        require_once 'Bincang_Capital.php';
+       $capitalModel = new Bincang_Capital($this->conn);
+
+       $capitalModel->syncLastCapitalAfterRecover($capital_uuid);
+    }
+
+
+    public function updateCapital($capital_uuid, $data, $update_by){
+        // echo "debug_updateCapital"; 
+        require_once 'Bincang_Capital.php';
+       $capitalModel = new Bincang_Capital($this->conn);
+            // echo "debug_last_capital before send to capital model: ".$data['last_capital'];
+            // echo "\n";
+
+      $capitalData = [
+        'type_transaction' => 'expense', // karena gaji keluar dari kas
+        'amount'           => $data['amount'],
+        'description'      => "Pembayaran gaji kepada " . $data['nama_karyawan'],
+        'purchase_uuid' => null,
+        'last_capital'     => $data['last_capital'],
+        'user_uuid'        => $data['user_uuid'],
+        'created_at'       => time(),
+    ];
+
+
+       $capitalModel->update($capital_uuid, $capitalData, $update_by);
+    }
     
+
+    public function insertOrUpdateToCapital($data){
+        
+        //cek jika data capital dgn salary_uuid x belum ada, maka insert
+        $oldDataCapital = get_capital_by_salary_uuid($data['salary_uuid'],$this->conn);
+        if($oldDataCapital != null){
+            //data belum ada, maka insert
+            $this->insertToCapital($data);
+        }
+        else{
+            //data sudah ada, maka update
+             $this->updateToCapital($oldDataCapital, $data);
+        }
+        
+    }
+
+    public function updateToCapital($oldDataCapital, $data){
+        if($oldDataCapital['amount'] != $data['total_salary']){
+            $difference = $data['total_salary'] - $oldDataCapital['amount'];
+            //difference tambahkan ke row dirinya + row bawahnya
+            
+            //difference tambahkan ke total_capital
+                
+        }
+    }
+
+
+    public function insertToCapital($data){
+        echo "voila new func";
+   
+
+        if($data['status'] == "paid")
+        {
+
+
+ $sql = "INSERT INTO {$this->table_capital} 
+        (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at, salary_uuid, deleted_at, deleted_by)
+        VALUES
+        (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :last_capital, :user_uuid, :created_at, :salary_uuid, :deleted_at, :deleted_by)";
+
+        $stmt = $this->conn->prepare($sql);
+        $success = $stmt->execute([
+        'capital_uuid'     => generate_uuid(),
+        'type_transaction' => 'expense', // karena gaji keluar dari kas
+        'salary_uuid'    => $data['salary_uuid'], // kaitkan dengan salary
+        'amount'           => $data['amount'],
+        'description'      => "Pembayaran gaji kepada " . $data['nama_karyawan'],
+        'purchase_uuid' => null,
+        'last_capital'     => $data['last_capital'], // opsional, bisa hitung otomatis di model capital
+        'user_uuid'        => $data['user_uuid'],
+        'created_at'       => time(),
+        'deleted_at'       => null,
+        'deleted_by'       => null,
+          ]);
+            acumulate_amount_total_capital("expense",$data['amount'],$this->conn);
+        }  
+
+}
+
 
     public function insert($data)
     {
@@ -381,6 +482,18 @@ public function delete($salary_uuid, $deleted_by)
 
             if ($item) {
 
+                //masukkan data ke penggajian ke capital jika sudah dibayarkan (status == paid)
+                $dataForCapital = [
+                    'salary_uuid' => $item['salary_uuid'],
+                    'amount' => $item['total_salary'],
+                    'last_capital' => (get_recent_last_capital($this->conn) - $item['total_salary']),
+                    "user_uuid" => $item['user_uuid'],
+                    "nama_karyawan" => getEmployeeName($item['payee_user_uuid'], $this->conn),
+                    "status" => $item['status'],
+                ];
+                $this->insertToCapital($dataForCapital);
+
+                
                 return [
                     "status" => "success",
                     "code" => 200,
@@ -389,6 +502,8 @@ public function delete($salary_uuid, $deleted_by)
             }
         }
     }
+
+
 
     public function recover($salary_uuid, $recover_by)
     {
