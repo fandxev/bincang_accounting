@@ -233,10 +233,11 @@ class Bincang_Salary
     $affectedRows = $stmt->rowCount();
 
     if ($affectedRows > 0) {
-        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
+        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee, CONCAT(up.profile_first_name, ' ', up.profile_last_name) AS nama_karyawan
         FROM {$this->table} s
         LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
         LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+          JOIN bincang_user_profile up ON  s.payee_user_uuid = up.profile_user_uuid
         WHERE salary_uuid = :id";
         $stmtSelect = $this->conn->prepare($sqlSelect);
         $stmtSelect->bindValue(':id', $salary_uuid);
@@ -245,6 +246,7 @@ class Bincang_Salary
 
         if ($item) {
 
+            $this->insertOrUpdateToCapital($item, $update_by, $oldData);
             date_default_timezone_set('Asia/Jakarta');
             $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
             return [
@@ -273,11 +275,17 @@ public function delete($salary_uuid, $deleted_by)
             return $userIsNotAccountant;
         }
         // ambil data sebelum update
-        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
-        FROM {$this->table} s
-        LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
-        LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
-        WHERE salary_uuid = :id";
+    $sqlSelect = "SELECT 
+                s.*, 
+                u.user_username AS salary_input_by, 
+                p.user_username AS username_payee,
+                c.id AS id_bincang_capital,
+                c.description AS description_bincang_capital
+            FROM {$this->table} s
+            LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
+            LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
+            LEFT JOIN bincang_capital c ON c.salary_uuid = s.salary_uuid
+            WHERE s.salary_uuid = :id";
         $stmtSelect = $this->conn->prepare($sqlSelect);
         $stmtSelect->bindValue(':id', $salary_uuid);
         $stmtSelect->execute();
@@ -309,6 +317,13 @@ public function delete($salary_uuid, $deleted_by)
         $affectedRows = $stmt->rowCount();
 
         if ($affectedRows > 0) {
+
+            //jika status == paid, maka hapus record dari total saldo
+            if($item['status'] == "paid"){
+                $this->deleteCapitalBySalaryUUID($item['salary_uuid'], $deleted_by);
+                acumulate_amount_total_capital("income", $item['total_salary'], $this->conn);
+                logCapitalAction("delete", $deleted_by, $item['total_salary'], $item['id_bincang_capital'], $item['description_bincang_capital'], $this->conn);    
+            }
 
             $item['deleted_by'] = $deleted_by;
             $item['deleted_at'] = $deletedAt;
@@ -347,83 +362,130 @@ public function delete($salary_uuid, $deleted_by)
     }
 
 
-    public function updateCapital($capital_uuid, $data, $update_by){
-        // echo "debug_updateCapital"; 
-        require_once 'Bincang_Capital.php';
-       $capitalModel = new Bincang_Capital($this->conn);
-            // echo "debug_last_capital before send to capital model: ".$data['last_capital'];
-            // echo "\n";
 
-      $capitalData = [
-        'type_transaction' => 'expense', // karena gaji keluar dari kas
-        'amount'           => $data['amount'],
-        'description'      => "Pembayaran gaji kepada " . $data['nama_karyawan'],
-        'purchase_uuid' => null,
-        'last_capital'     => $data['last_capital'],
-        'user_uuid'        => $data['user_uuid'],
-        'created_at'       => time(),
-    ];
-
-
-       $capitalModel->update($capital_uuid, $capitalData, $update_by);
-    }
     
 
-    public function insertOrUpdateToCapital($data){
+    public function insertOrUpdateToCapital($dataUpdateSalary, $user_uuid, $oldDataBeforeUpdate){
         
         //cek jika data capital dgn salary_uuid x belum ada, maka insert
-        $oldDataCapital = get_capital_by_salary_uuid($data['salary_uuid'],$this->conn);
-        if($oldDataCapital != null){
+        $oldDataCapital = get_capital_by_salary_uuid($dataUpdateSalary['salary_uuid'],$this->conn);
+        if($oldDataCapital == null){
             //data belum ada, maka insert
-            $this->insertToCapital($data);
+            $this->insertToCapital($dataUpdateSalary, $user_uuid);
         }
         else{
             //data sudah ada, maka update
-             $this->updateToCapital($oldDataCapital, $data);
+             $this->updateToCapital($oldDataCapital, $dataUpdateSalary, $user_uuid, $oldDataBeforeUpdate);
         }
         
     }
 
-    public function updateToCapital($oldDataCapital, $data){
-        if($oldDataCapital['amount'] != $data['total_salary']){
-            $difference = $data['total_salary'] - $oldDataCapital['amount'];
-            //difference tambahkan ke row dirinya + row bawahnya
-            
-            //difference tambahkan ke total_capital
-                
-        }
+public function recoverCapitalBySalaryUUID($salaryUUID, $recover_by="")
+{
+    $sql = "UPDATE bincang_capital 
+            SET deleted_by = NULL, 
+                deleted_at = NULL 
+            WHERE salary_uuid = :salary_uuid";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bindValue(':salary_uuid', $salaryUUID);
+
+    return $stmt->execute(); // true jika sukses, false jika gagal
+}
+
+
+    public function deleteCapitalBySalaryUUID($salaryUUID, $deleted_by){
+    $sql = "UPDATE bincang_capital 
+            SET deleted_by = :deleted_by, 
+                deleted_at = :deleted_at 
+            WHERE salary_uuid = :salary_uuid";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bindValue(':deleted_by', $deleted_by);
+    $stmt->bindValue(':deleted_at', time()); // gunakan time() untuk timestamp saat ini
+    $stmt->bindValue(':salary_uuid', $salaryUUID);
+
+    return $stmt->execute();
     }
 
+   public function updateToCapital($oldDataCapital, $dataUpdateSalary, $user_uuid, $oldDataSalaryBeforeUpdate) {
+    $deleted_by = null;
+    $deleted_at = null;
 
-    public function insertToCapital($data, $user_uuid){
+    // jika status salary unpaid atau pending, tandai sebagai dihapus
+    if ($dataUpdateSalary['status'] == "unpaid" || $dataUpdateSalary['status'] == "pending") {
+        $deleted_by = $user_uuid;
+        $deleted_at = time();
+    }
+
+    // update field ke tabel bincang_capital berdasarkan salary_uuid
+    $sqlUpdateCapital = "UPDATE {$this->table_capital}
+                         SET deleted_at = :deleted_at,
+                             updated_at = :updated_at,
+                             deleted_by = :deleted_by,
+                             amount = :amount
+                         WHERE salary_uuid = :salary_uuid";
+
+    $stmt = $this->conn->prepare($sqlUpdateCapital);
+    $success = $stmt->execute([
+        ':deleted_at'   => $deleted_at,
+        ':updated_at'   => time(),
+        ':deleted_by'   => $deleted_by,
+        ':amount'       => $dataUpdateSalary['total_salary'],
+        ':salary_uuid'  => $dataUpdateSalary['salary_uuid'],
+    ]);
+
+
+    //status berubah dari nonpaid menjadi paid
+    if($dataUpdateSalary['status'] == "paid" && $oldDataSalaryBeforeUpdate['status'] != "paid")
+    {
+    acumulate_amount_total_capital("expense", $dataUpdateSalary['total_salary'], $this->conn);
+    logCapitalAction("recover", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);
+    }
+
+    if($dataUpdateSalary['status'] != "paid" && $oldDataSalaryBeforeUpdate['status'] == "paid")
+    {
+    acumulate_amount_total_capital("income", $dataUpdateSalary['total_salary'], $this->conn);
+    logCapitalAction("delete", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);        
+    }
+
+    if (($oldDataCapital['amount'] != $dataUpdateSalary['total_salary']) && $dataUpdateSalary['status'] == "paid") {
+        $difference = $dataUpdateSalary['total_salary'] - $oldDataCapital['amount'];       
+        acumulate_amount_total_capital("expense", $difference, $this->conn);
+        logCapitalAction("expense", $user_uuid, $difference, $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);
+    }
+}
+
+
+
+    public function insertToCapital($dataUpdateSalary, $user_uuid){
    
 
-        if($data['status'] == "paid")
+        if($dataUpdateSalary['status'] == "paid")
         {
 
-$description = "Pembayaran gaji kepada " . $data['nama_karyawan'];
+$description = "Pembayaran gaji kepada " . $dataUpdateSalary['nama_karyawan'];
  $sql = "INSERT INTO {$this->table_capital} 
-        (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at, salary_uuid, deleted_at, deleted_by)
+        (capital_uuid, type_transaction, purchase_uuid, amount, description, user_uuid, created_at, salary_uuid, deleted_at, deleted_by)
         VALUES
-        (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :last_capital, :user_uuid, :created_at, :salary_uuid, :deleted_at, :deleted_by)";
+        (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :user_uuid, :created_at, :salary_uuid, :deleted_at, :deleted_by)";
 
         $stmt = $this->conn->prepare($sql);
         $success = $stmt->execute([
         'capital_uuid'     => generate_uuid(),
         'type_transaction' => 'expense', // karena gaji keluar dari kas
-        'salary_uuid'    => $data['salary_uuid'], // kaitkan dengan salary
-        'amount'           => $data['amount'],
+        'salary_uuid'    => $dataUpdateSalary['salary_uuid'], // kaitkan dengan salary
+        'amount'           => $dataUpdateSalary['total_salary'],
         'description'      => $description,
         'purchase_uuid' => null,
-        'last_capital'     => $data['last_capital'], // opsional, bisa hitung otomatis di model capital
-        'user_uuid'        => $data['user_uuid'],
+        'user_uuid'        => $dataUpdateSalary['user_uuid'],
         'created_at'       => time(),
         'deleted_at'       => null,
         'deleted_by'       => null,
           ]);
             $lastId = $this->conn->lastInsertId();
-            acumulate_amount_total_capital("expense",$data['amount'],$this->conn);
-            logCapitalAction("insert",$user_uuid, $data['amount'],  $lastId, $description, $this->conn);
+            acumulate_amount_total_capital("expense",$dataUpdateSalary['total_salary'],$this->conn);
+            logCapitalAction("insert",$user_uuid, $dataUpdateSalary['total_salary'],  $lastId, $description, $this->conn);
         }  
 
 }
@@ -486,8 +548,7 @@ $description = "Pembayaran gaji kepada " . $data['nama_karyawan'];
                 //masukkan data ke penggajian ke capital jika sudah dibayarkan (status == paid)
                 $dataForCapital = [
                     'salary_uuid' => $item['salary_uuid'],
-                    'amount' => $item['total_salary'],
-                    'last_capital' => (get_recent_last_capital($this->conn) - $item['total_salary']),
+                    'total_salary' => $item['total_salary'],
                     "user_uuid" => $item['user_uuid'],
                     "nama_karyawan" => getEmployeeName($item['payee_user_uuid'], $this->conn),
                     "status" => $item['status'],
@@ -515,11 +576,14 @@ $description = "Pembayaran gaji kepada " . $data['nama_karyawan'];
         }
 
         // Ambil data sebelum update
-        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee
+        $sqlSelect = "SELECT s.*, u.user_username AS salary_input_by, p.user_username AS username_payee,
+                        c.id AS id_bincang_capital,
+                c.description AS description_bincang_capital
         FROM {$this->table} s
         LEFT JOIN bincang_user u ON s.user_uuid = u.user_uuid
         LEFT JOIN bincang_user p ON s.payee_user_uuid = p.user_uuid
-        WHERE salary_uuid = :salary_uuid";
+        LEFT JOIN bincang_capital c ON c.salary_uuid = s.salary_uuid
+        WHERE s.salary_uuid = :salary_uuid";
 
         $stmtSelect = $this->conn->prepare($sqlSelect);
         $stmtSelect->execute([':salary_uuid' => $salary_uuid]);
@@ -549,6 +613,12 @@ $description = "Pembayaran gaji kepada " . $data['nama_karyawan'];
 
         if ($affectedRows > 0) {
 
+            //jika status == paid, maka kembalikan record dari total saldo
+            if($item['status'] == "paid"){
+                $this->recoverCapitalBySalaryUUID($item['salary_uuid']);
+                acumulate_amount_total_capital("expense", $item['total_salary'], $this->conn);
+                logCapitalAction("recover", $recover_by, $item['total_salary'], $item['id_bincang_capital'], $item['description_bincang_capital'], $this->conn);    
+            }  
 
             return [
                 "status" => "success",
