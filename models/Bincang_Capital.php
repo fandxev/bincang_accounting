@@ -25,7 +25,6 @@ class Bincang_Capital
             $where[] = "(c.type_transaction LIKE :search 
                  OR c.amount LIKE :search 
                  OR c.description LIKE :search 
-                 OR c.last_capital LIKE :search 
                  OR u.user_username LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
@@ -104,9 +103,9 @@ class Bincang_Capital
 
 
         $sql = "INSERT INTO {$this->table} 
-        (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at)
+        (capital_uuid, type_transaction, purchase_uuid, amount, description, user_uuid, created_at)
         VALUES
-        (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :last_capital, :user_uuid, :created_at)";
+        (:capital_uuid, :type_transaction, :purchase_uuid, :amount, :description, :user_uuid, :created_at)";
 
         $stmt = $this->conn->prepare($sql);
         $success = $stmt->execute([
@@ -115,7 +114,6 @@ class Bincang_Capital
             ':purchase_uuid'    => $data['purchase_uuid'],
             ':amount'           => $data['amount'],
             ':description'      => $data['description'],
-            ':last_capital'     => $data['last_capital'],
             ':user_uuid'        => $data['user_uuid'],
             ':created_at'       => $data['created_at'],
         ]);
@@ -136,7 +134,9 @@ class Bincang_Capital
 
             if ($item) {
 
-                $this->insertOrUpdateTotalCapital($data['type_transaction'], $data['amount']);
+
+
+                $this->insertOrUpdateTotalCapital($data['type_transaction'], $data['amount'], $data['user_uuid'],$item['id'],$item['description']);
                 date_default_timezone_set('Asia/Jakarta');
                 $item['created_at'] = date('Y-m-d H:i:s', $item['created_at']);
 
@@ -186,7 +186,6 @@ class Bincang_Capital
         $mergedData['purchase_uuid'] = (isset($data['purchase_uuid'])) ? $data['purchase_uuid'] : $oldData['purchase_uuid'];
         $mergedData['amount'] = (isset($data['amount'])) ? $data['amount'] : $oldData['amount'];
         $mergedData['description'] = (isset($data['description'])) ? $data['description'] : $oldData['description'];
-        $mergedData['last_capital'] = (isset($data['last_capital'])) ? $data['last_capital'] : $oldData['last_capital'];
         $mergedData['user_uuid'] = (isset($data['user_uuid'])) ? $data['user_uuid'] : $oldData['user_uuid'];
 
 
@@ -197,7 +196,6 @@ class Bincang_Capital
         purchase_uuid = :purchase_uuid,
         amount = :amount,
         description = :description,
-        last_capital = :last_capital,
         user_uuid = :user_uuid,
         updated_at = :updated_at
         WHERE 
@@ -212,7 +210,6 @@ class Bincang_Capital
             ':purchase_uuid'    => $mergedData['purchase_uuid'],
             ':amount'           => $mergedData['amount'],
             ':description'      => $mergedData['description'],
-            ':last_capital'     => $mergedData['last_capital'],
             ':user_uuid'        => $mergedData['user_uuid'],
             ':updated_at'       => time(),
             ':id'               => $capital_uuid,
@@ -231,7 +228,7 @@ class Bincang_Capital
             $new_amount = $data['amount'] ?? $oldData['amount'];
 
 
-            $this->syncLastCapitalAfterUpdate($capital_uuid, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount);
+            $this->syncLastCapitalAfterUpdate($capital_uuid, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount, $update_by, $oldData['id'], $mergedData['description']);
 
 
             // ambil kembali data yang telah diperbarui
@@ -283,7 +280,7 @@ class Bincang_Capital
     }
 
 
-    public function deletePermanentlyInactive($capital_uuid)
+    public function deletePermanentlyInactive($capital_uuid,$deleted_by)
     {
         // ambil data sebelum dihapus
         $sqlSelect = "SELECT c.*, u.user_username 
@@ -292,7 +289,7 @@ class Bincang_Capital
                   WHERE c.capital_uuid = :capital_uuid";
 
         //sesuaikan capital sebelum dihapus
-        $this->syncLastCapitalAfterDelete($capital_uuid);
+        $this->syncLastCapitalAfterDelete($capital_uuid, $deleted_by);
 
         $stmtSelect = $this->conn->prepare($sqlSelect);
         $stmtSelect->bindValue(':capital_uuid', $capital_uuid);
@@ -373,7 +370,7 @@ class Bincang_Capital
 
         if ($affectedRows > 0) {
 
-            $this->syncLastCapitalAfterDelete($capital_uuid);
+            $this->syncLastCapitalAfterDelete($capital_uuid, $deleted_by);
             $item['deleted_by'] = $deleted_by;
             $item['deleted_at'] = $deletedAt;
 
@@ -393,8 +390,7 @@ class Bincang_Capital
             "message" => "Gagal menghapus data."
         ];
     }
-
-    public function insertOrUpdateTotalCapital($type_transaction, $amount)
+    public function insertOrUpdateTotalCapital($type_transaction, $amount, $user_uuid, $id_capital, $description)
     {
         // ambil baris pertama (hanya ada satu row)
         $sqlCheck = "SELECT total_capital FROM {$this->tableTotalCapital} LIMIT 1";
@@ -408,6 +404,8 @@ class Bincang_Capital
             if ($existing) {
                 // sudah ada, maka tambahkan
                 $newTotal = $existing['total_capital'] + $amount;
+                
+              
 
                 $sqlUpdate = "UPDATE {$this->tableTotalCapital} 
                           SET total_capital = :total_capital, updated_at = :updated_at";
@@ -453,6 +451,9 @@ class Bincang_Capital
                 ]);
             }
         }
+         logCapitalAction("insert",$user_uuid, $amount, $id_capital, $description, $this->conn);
+
+
     }
 
 
@@ -499,7 +500,7 @@ class Bincang_Capital
 
         if ($affectedRows > 0) {
 
-            $this->syncLastCapitalAfterRecover($capital_uuid);
+            $this->syncLastCapitalAfterRecover($capital_uuid, $recover_by);
 
             return [
                 "status" => "success",
@@ -517,7 +518,7 @@ class Bincang_Capital
     }
 
 
-    public function syncLastCapitalAfterUpdate($uuid_capital, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount)
+    public function syncLastCapitalAfterUpdate($uuid_capital, $previous_type_transaction, $previous_amount, $new_type_transaction, $new_amount, $user_uuid, $id_capital, $description)
     {
 
         if(($previous_amount == $new_amount)&&($previous_type_transaction == $new_type_transaction)){
@@ -547,21 +548,7 @@ class Bincang_Capital
         $stmtFind->execute([':capital_uuid' => $uuid_capital]);
         $row = $stmtFind->fetch(PDO::FETCH_ASSOC);
 
-        if ($row && isset($row['id'])) {
-            $currentId = $row['id'];
 
-            // update semua baris setelahnya
-            $sqlUpdate = "UPDATE {$this->table}
-                      SET last_capital = last_capital + :diff
-                      WHERE capital_uuid = :capital_uuid OR id > :current_id";
-
-            $stmtUpdate = $this->conn->prepare($sqlUpdate);
-            $stmtUpdate->execute([
-                ':diff' => $difference_amount,
-                ':capital_uuid' => $uuid_capital,
-                ':current_id' => $currentId
-            ]);
-        }
 
 
         // update total capital di tabel bincang_capital_total
@@ -572,18 +559,26 @@ class Bincang_Capital
                         ";
 
         $stmtTotal = $this->conn->prepare($sqlUpdateTotal);
-        $stmtTotal->execute([
+        $success = $stmtTotal->execute([
             ':diff' => $difference_amount,
             ':updated_at' => time()
         ]);
-    }
+
+            $description = "update ".$description. " from ".$previous_amount." to ".$new_amount;
+         
+
+            if ($success && $stmtTotal->rowCount() > 0) {
+     logCapitalAction("update",$user_uuid, $difference_amount, $id_capital, $description, $this->conn);
+            }
     }
 
-    public function syncLastCapitalAfterDelete($uuid_capital)
+    }
+
+    public function syncLastCapitalAfterDelete($uuid_capital,$user_uuid)
     {
         $delete_amount = 0;
 
-        $sqlFind = "SELECT id, type_transaction, amount, last_capital FROM {$this->table} 
+        $sqlFind = "SELECT id, type_transaction, description, amount FROM {$this->table} 
                 WHERE capital_uuid = :capital_uuid 
                 ORDER BY id DESC LIMIT 1";
         $stmtFind = $this->conn->prepare($sqlFind);
@@ -600,16 +595,6 @@ class Bincang_Capital
                 $delete_amount = +abs($row['amount']);
             }
 
-            // update semua baris setelahnya
-            $sqlUpdate = "UPDATE {$this->table}
-                      SET last_capital = last_capital - :deletion
-                      WHERE  id > :current_id";
-
-            $stmtUpdate = $this->conn->prepare($sqlUpdate);
-            $stmtUpdate->execute([
-                ':deletion' => $delete_amount,
-                ':current_id' => $currentId
-            ]);
         }
 
 
@@ -621,17 +606,21 @@ class Bincang_Capital
                         ";
 
         $stmtTotal = $this->conn->prepare($sqlUpdateTotal);
-        $stmtTotal->execute([
+        $success = $stmtTotal->execute([
             ':deletion' => $delete_amount,
             ':updated_at' => time()
         ]);
+        if ($success && $stmtTotal->rowCount() > 0) {
+          logCapitalAction("delete",$user_uuid, $delete_amount, $currentId, $row['description'], $this->conn);
+        }
+
     }
 
-    public function syncLastCapitalAfterRecover($uuid_capital)
+    public function syncLastCapitalAfterRecover($uuid_capital, $user_uuid)
     {
         $recover_amount = 0;
 
-        $sqlFind = "SELECT id, type_transaction, amount, last_capital FROM {$this->table} 
+        $sqlFind = "SELECT id, type_transaction, description, amount FROM {$this->table} 
                 WHERE capital_uuid = :capital_uuid 
                 ORDER BY id DESC LIMIT 1";
         $stmtFind = $this->conn->prepare($sqlFind);
@@ -648,16 +637,7 @@ class Bincang_Capital
                 $recover_amount = abs($row['amount']);
             }
 
-            // update semua baris setelahnya
-            $sqlUpdate = "UPDATE {$this->table}
-                      SET last_capital = last_capital + :recover
-                      WHERE  id > :current_id";
 
-            $stmtUpdate = $this->conn->prepare($sqlUpdate);
-            $stmtUpdate->execute([
-                ':recover' => $recover_amount,
-                ':current_id' => $currentId
-            ]);
         }
 
 
@@ -669,10 +649,14 @@ class Bincang_Capital
                         ";
 
         $stmtTotal = $this->conn->prepare($sqlUpdateTotal);
-        $stmtTotal->execute([
+       $success = $stmtTotal->execute([
             ':recover' => $recover_amount,
             ':updated_at' => time()
         ]);
+
+       if ($success && $stmtTotal->rowCount() > 0) {
+         logCapitalAction("recover",$user_uuid, $recover_amount, $currentId, $row['description'], $this->conn);        
+    } 
     }
 
     public function getCapitalReport($startDate = null, $endDate = null)

@@ -395,14 +395,13 @@ public function delete($salary_uuid, $deleted_by)
     }
 
 
-    public function insertToCapital($data){
-        echo "voila new func";
+    public function insertToCapital($data, $user_uuid){
    
 
         if($data['status'] == "paid")
         {
 
-
+$description = "Pembayaran gaji kepada " . $data['nama_karyawan'];
  $sql = "INSERT INTO {$this->table_capital} 
         (capital_uuid, type_transaction, purchase_uuid, amount, description, last_capital, user_uuid, created_at, salary_uuid, deleted_at, deleted_by)
         VALUES
@@ -414,7 +413,7 @@ public function delete($salary_uuid, $deleted_by)
         'type_transaction' => 'expense', // karena gaji keluar dari kas
         'salary_uuid'    => $data['salary_uuid'], // kaitkan dengan salary
         'amount'           => $data['amount'],
-        'description'      => "Pembayaran gaji kepada " . $data['nama_karyawan'],
+        'description'      => $description,
         'purchase_uuid' => null,
         'last_capital'     => $data['last_capital'], // opsional, bisa hitung otomatis di model capital
         'user_uuid'        => $data['user_uuid'],
@@ -422,7 +421,9 @@ public function delete($salary_uuid, $deleted_by)
         'deleted_at'       => null,
         'deleted_by'       => null,
           ]);
+            $lastId = $this->conn->lastInsertId();
             acumulate_amount_total_capital("expense",$data['amount'],$this->conn);
+            logCapitalAction("insert",$user_uuid, $data['amount'],  $lastId, $description, $this->conn);
         }  
 
 }
@@ -491,7 +492,7 @@ public function delete($salary_uuid, $deleted_by)
                     "nama_karyawan" => getEmployeeName($item['payee_user_uuid'], $this->conn),
                     "status" => $item['status'],
                 ];
-                $this->insertToCapital($dataForCapital);
+                $this->insertToCapital($dataForCapital,$data['user_uuid']);
 
                 
                 return [

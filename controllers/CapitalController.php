@@ -43,12 +43,8 @@ class CapitalController
 
     public function post()
     {
-        $new_capital = 0;
-        if ($_POST['type_transaction'] == "income") {
-            $new_capital = $this->get_recent_last_capital() + $_POST['amount'];
-        } else if ($_POST['type_transaction'] == "expense") {
-            $new_capital = $this->get_recent_last_capital() - $_POST['amount'];
-        } else {
+
+        if ($_POST['type_transaction'] != "income" && $_POST['type_transaction'] != "expense") {
             errorResponse(400, "Transaksi Invalid");
             return;
         }
@@ -59,7 +55,6 @@ class CapitalController
             'purchase_uuid'    => $_POST['purchase_uuid'] ?? null,
             'amount'           => $_POST['amount'] ?? 0,
             'description'      => $_POST['description'] ?? '',
-            'last_capital'     => $new_capital,
             'user_uuid'        => $_POST['user_uuid'] ?? '',
             'created_at'       => time(),
         ];
@@ -85,7 +80,6 @@ class CapitalController
         $new_purchase_uuid = (isset($data['purchase_uuid'])) ? $data['purchase_uuid'] : null;
         $new_amount = (isset($data['amount'])) ? $data['amount'] : null;
         $new_description = (isset($data['description'])) ? $data['description'] : null;
-        $new_last_capital = (isset($data['last_capital'])) ? $data['last_capital'] : null;
         $new_user_uuid = (isset($data['user_uuid'])) ? $data['user_uuid'] : null;
 
 
@@ -95,7 +89,6 @@ class CapitalController
             'purchase_uuid'    => $new_purchase_uuid,
             'amount'           => $new_amount,
             'description'      => $new_description,
-            'last_capital'     => $new_last_capital,
             'user_uuid'        => $new_user_uuid,
         ];
 

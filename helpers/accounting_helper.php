@@ -185,3 +185,58 @@ function acumulate_amount_total_capital($type_transaction, $amount, $conn)
         ]);
     }
 }
+
+function get_type_transaction($id, $conn)
+{
+    $tableCapital = 'bincang_capital';
+    try {
+        $sql = "SELECT type_transaction 
+                FROM " . $tableCapital . " 
+                WHERE id = :id 
+                LIMIT 1";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($result) {
+            return $result['type_transaction'];
+        } else {
+            return null;
+        }
+    } catch (PDOException $e) {
+        echo "Error getting type_transaction by ID: " . $e->getMessage();
+        return null;
+    }
+}
+
+   function logCapitalAction($type, $actor, $amount_of_action, $id_bincang_capital, $description, $conn, $previousValue = 0, $newValue = 0){
+
+        $tableLog = 'bincang_capital_log';
+        $total_capital_after_action = get_recent_last_capital($conn);
+
+        $type_transaction = get_type_transaction($id_bincang_capital, $conn);
+        if( $type_transaction == "expense")
+        {
+           $amount_of_action = -abs($amount_of_action); 
+        }
+
+
+        $sqlInsert = "INSERT INTO " . $tableLog . " 
+                      (type, actor, amount_of_action, total_capital_after_action, id_bincang_capital, description, timestamp)
+                      VALUES 
+                      (:type, :actor, :amount_of_action, :total_capital_after_action, :id_bincang_capital, :description, :timeNow)";
+
+        $stmtInsert = $conn->prepare($sqlInsert);
+        $stmtInsert->bindValue(':type', $type, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':actor', $actor, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':amount_of_action', $amount_of_action, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':total_capital_after_action', $total_capital_after_action, PDO::PARAM_INT);
+        $stmtInsert->bindValue(':id_bincang_capital', $id_bincang_capital, PDO::PARAM_INT);
+        $stmtInsert->bindValue(':description', $description, PDO::PARAM_STR);
+         $stmtInsert->bindValue(':timeNow', time(), PDO::PARAM_STR);
+
+        $stmtInsert->execute();
+
+    }
