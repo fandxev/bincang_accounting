@@ -149,6 +149,17 @@ class Bincang_Salary
         return errorResponse("404", "Data tidak ditemukan");
     }
 
+    //jangan sampai update status dan salah satu dari nominal salary bersamaan, agar tidak nge bug
+if (isset($data['status']) && (
+    isset($data['basic_salary']) ||
+    isset($data['allowance']) ||
+    isset($data['bonus']) ||
+    isset($data['deduction'])
+)) {
+    // Tolak operasi
+    return errorResponse("400","Operasi tidak diizinkan: 'status' tidak boleh diset bersamaan dengan komponen gaji lainnya yang berisi nominal.");
+}
+
    
 
 
@@ -443,13 +454,14 @@ public function recoverCapitalBySalaryUUID($salaryUUID, $recover_by="")
     logCapitalAction("recover", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);
     }
 
-    if($dataUpdateSalary['status'] != "paid" && $oldDataSalaryBeforeUpdate['status'] == "paid")
+    else if($dataUpdateSalary['status'] != "paid" && $oldDataSalaryBeforeUpdate['status'] == "paid")
     {
     acumulate_amount_total_capital("income", $dataUpdateSalary['total_salary'], $this->conn);
     logCapitalAction("delete", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);        
     }
 
-    if (($oldDataCapital['amount'] != $dataUpdateSalary['total_salary']) && $dataUpdateSalary['status'] == "paid") {
+    else if (($oldDataCapital['amount'] != $dataUpdateSalary['total_salary']) && $dataUpdateSalary['status'] == "paid") {
+        echo "else if called";
         $difference = $dataUpdateSalary['total_salary'] - $oldDataCapital['amount'];       
         acumulate_amount_total_capital("expense", $difference, $this->conn);
         logCapitalAction("expense", $user_uuid, $difference, $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);

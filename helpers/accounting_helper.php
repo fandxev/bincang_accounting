@@ -213,6 +213,7 @@ function get_type_transaction($id, $conn)
 
    function logCapitalAction($type, $actor, $amount_of_action, $id_bincang_capital, $description, $conn, $previousValue = 0, $newValue = 0){
 
+       try{
         $tableLog = 'bincang_capital_log';
         $total_capital_after_action = get_recent_last_capital($conn);
 
@@ -239,4 +240,8 @@ function get_type_transaction($id, $conn)
 
         $stmtInsert->execute();
 
+    }
+    catch(PDOException $e){
+        echo "terjadi kesalahan saat logging";
+    }
     }

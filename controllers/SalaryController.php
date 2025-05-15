@@ -104,7 +104,7 @@ public function patch($id)
         header('Content-Type: application/json');
         echo json_encode($result);
     } else {
-        errorResponse(500, "Gagal memperbarui data gaji");
+        //errorResponse(500, "Gagal memperbarui data gaji");
     }
 }
 public function delete($id)
@@ -544,11 +544,11 @@ public function downloadSalarySlip($id)
 
 if(empty($salaryData['pdf_payslip']))
 {
-    echo "pdf _payslip empty: ".$salaryData['pdf_payslip'];
+    return errorResponse("404","File tidak ditemukan");
 }
 
 if(!file_exists($salaryData['pdf_payslip'])){
-    echo "file tidak ditemukan";
+        return errorResponse("404","File tidak ditemukan");
 }
 
 
