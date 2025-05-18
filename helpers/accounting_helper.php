@@ -242,6 +242,6 @@ function get_type_transaction($id, $conn)
 
     }
     catch(PDOException $e){
-        echo "terjadi kesalahan saat logging";
+        // echo "terjadi kesalahan saat logging";
     }
     }

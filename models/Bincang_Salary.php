@@ -108,7 +108,11 @@ class Bincang_Salary
         foreach ($result as &$item) {
             date_default_timezone_set('Asia/Jakarta');
             $item['created_at'] = date('Y-m-d H:i:s', $item['created_at']);
-            $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
+            
+            if(!empty($item['payment_date']))
+            {
+                $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
+            }
 
             $scheme = isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'http';
             $host = $_SERVER['HTTP_HOST'];
@@ -259,7 +263,9 @@ if (isset($data['status']) && (
 
             $this->insertOrUpdateToCapital($item, $update_by, $oldData);
             date_default_timezone_set('Asia/Jakarta');
-            $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
+            if(!empty($item['payment_date'])){
+              $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
+            }
             return [
                 "status" => "success",
                 "code" => 200,
@@ -358,7 +364,6 @@ public function delete($salary_uuid, $deleted_by)
 
     public function deleteCapital($capital_uuid, $deleted_by)
     {  require_once 'Bincang_Capital.php';
-       echo "debug_deleteCapital";
         $capitalModel = new Bincang_Capital($this->conn);
 
        $capitalModel->delete($capital_uuid, $deleted_by);
@@ -461,7 +466,6 @@ public function recoverCapitalBySalaryUUID($salaryUUID, $recover_by="")
     }
 
     else if (($oldDataCapital['amount'] != $dataUpdateSalary['total_salary']) && $dataUpdateSalary['status'] == "paid") {
-        echo "else if called";
         $difference = $dataUpdateSalary['total_salary'] - $oldDataCapital['amount'];       
         acumulate_amount_total_capital("expense", $difference, $this->conn);
         logCapitalAction("expense", $user_uuid, $difference, $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);
