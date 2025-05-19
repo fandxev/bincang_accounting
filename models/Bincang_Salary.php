@@ -262,6 +262,8 @@ if (isset($data['status']) && (
         if ($item) {
 
             $this->insertOrUpdateToCapital($item, $update_by, $oldData);
+
+
             date_default_timezone_set('Asia/Jakarta');
             if(!empty($item['payment_date'])){
               $item['payment_date'] = date('Y-m-d', strtotime($item['payment_date']));
@@ -451,17 +453,24 @@ public function recoverCapitalBySalaryUUID($salaryUUID, $recover_by="")
         ':salary_uuid'  => $dataUpdateSalary['salary_uuid'],
     ]);
 
+    //jika ada perubahan si penerima gaji
+    if($dataUpdateSalary['payee_user_uuid'] !=  $oldDataSalaryBeforeUpdate['payee_user_uuid']){
+        updateUserNotificationSalary($dataUpdateSalary['salary_uuid'],$dataUpdateSalary['payee_user_uuid'],$this->conn);
+    }
 
     //status berubah dari nonpaid menjadi paid
     if($dataUpdateSalary['status'] == "paid" && $oldDataSalaryBeforeUpdate['status'] != "paid")
-    {
+    {    
     acumulate_amount_total_capital("expense", $dataUpdateSalary['total_salary'], $this->conn);
+    addNotificationSalary($dataUpdateSalary['payee_user_uuid'],$dataUpdateSalary['salary_uuid'], $this->conn);
     logCapitalAction("recover", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);
     }
 
+    //status berubah dari paid menjadi nonpaid
     else if($dataUpdateSalary['status'] != "paid" && $oldDataSalaryBeforeUpdate['status'] == "paid")
     {
     acumulate_amount_total_capital("income", $dataUpdateSalary['total_salary'], $this->conn);
+    removeNotificationSalary($dataUpdateSalary['salary_uuid'], $this->conn);
     logCapitalAction("delete", $user_uuid, $dataUpdateSalary['total_salary'], $oldDataCapital['id'], $oldDataCapital['description'], $this->conn);        
     }
 
@@ -569,8 +578,11 @@ $description = "Pembayaran gaji kepada " . $dataUpdateSalary['nama_karyawan'];
                     "nama_karyawan" => getEmployeeName($item['payee_user_uuid'], $this->conn),
                     "status" => $item['status'],
                 ];
+                if($dataForCapital["status"] == "paid")
+                {    
                 $this->insertToCapital($dataForCapital,$data['user_uuid']);
-
+                addNotificationSalary($item['payee_user_uuid'],$item['salary_uuid'],$this->conn);
+                }
                 
                 return [
                     "status" => "success",

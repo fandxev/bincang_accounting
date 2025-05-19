@@ -254,3 +254,80 @@ function get_type_transaction($id, $conn)
         // echo "terjadi kesalahan saat logging";
     }
     }
+
+function addNotificationSalary($user_uuid, $salary_uuid, $conn) {
+    try {
+        $tableNotif = 'bincang_notification';
+        $type_notification = "whatsapp";
+        $notification_uuid = generate_uuid();
+        $notification_name = "salary";
+        $notification_template = $type_notification . "-info-salary";
+        $notification_time = time();
+
+        // Cek apakah sudah ada data dengan salary_uuid tersebut
+        $sqlCheck = "SELECT COUNT(*) FROM " . $tableNotif . " WHERE salary_uuid = :salary_uuid AND notification_name = 'salary'";
+        $stmtCheck = $conn->prepare($sqlCheck);
+        $stmtCheck->bindValue(':salary_uuid', $salary_uuid, PDO::PARAM_STR);
+        $stmtCheck->execute();
+        $exists = $stmtCheck->fetchColumn();
+
+        if ($exists > 0) {
+            // Jika data sudah ada, jangan insert
+            return;
+        }
+
+        // Lanjut insert jika belum ada
+        $sqlInsert = "INSERT INTO " . $tableNotif . " 
+                      (notification_uuid, notification_user_uuid, salary_uuid, notification_name, notification_type, notification_template, notification_time)
+                      VALUES 
+                      (:notification_uuid, :notification_user_uuid, :salary_uuid, :notification_name, :notification_type, :notification_template, :notification_time)";
+
+        $stmtInsert = $conn->prepare($sqlInsert);
+        $stmtInsert->bindValue(':notification_uuid', $notification_uuid, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':notification_user_uuid', $user_uuid, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':salary_uuid', $salary_uuid, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':notification_name', $notification_name, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':notification_type', $type_notification, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':notification_template', $notification_template, PDO::PARAM_STR);
+        $stmtInsert->bindValue(':notification_time', $notification_time, PDO::PARAM_INT);
+
+        $stmtInsert->execute();
+    } catch (PDOException $e) {
+        // echo "terjadi kesalahan saat menambahkan notifikasi gaji";
+    }
+}
+
+    function removeNotificationSalary($salary_uuid, $conn) {
+    try {
+        $tableNotif = 'bincang_notification';
+
+        $sqlDelete = "DELETE FROM " . $tableNotif . " 
+                      WHERE salary_uuid = :salary_uuid";
+
+        $stmtDelete = $conn->prepare($sqlDelete);
+        $stmtDelete->bindValue(':salary_uuid', $salary_uuid, PDO::PARAM_STR);
+
+        $stmtDelete->execute();
+    } catch (PDOException $e) {
+        // echo "terjadi kesalahan saat menghapus notifikasi gaji";
+    }
+    }
+
+ function updateUserNotificationSalary($salary_uuid, $new_user_uuid, $conn) {
+    try {
+        $tableNotif = 'bincang_notification';
+
+        $sqlUpdate = "UPDATE " . $tableNotif . " 
+                      SET notification_user_uuid = :new_user_uuid
+                      WHERE salary_uuid = :salary_uuid 
+                      AND notification_name = 'salary'";
+
+        $stmtUpdate = $conn->prepare($sqlUpdate);
+        $stmtUpdate->bindValue(':new_user_uuid', $new_user_uuid, PDO::PARAM_STR);
+        $stmtUpdate->bindValue(':salary_uuid', $salary_uuid, PDO::PARAM_STR);
+
+        $stmtUpdate->execute();
+    } catch (PDOException $e) {
+        // echo "terjadi kesalahan saat memperbarui user notifikasi gaji";
+    }
+}
