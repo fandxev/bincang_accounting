@@ -181,6 +181,14 @@ class CapitalController
         return $this->model->get_recent_last_capital();
     }
 
+    //versi json
+    public function get_last_capital()
+    {
+         header('Content-Type: application/json');
+        $result = $this->model->get_last_capital();
+        echo json_encode($result);
+    }
+
     public function report()
 {
     $startDate = isset($_GET['startDate']) ? $_GET['startDate'] : null;

@@ -53,6 +53,8 @@ function getEmployeeName($user_uuid, $conn)
     return $fullName;
 }
 
+
+
 function get_recent_last_capital($conn)
     {
         $tableTotalCapital = 'bincang_capital_total';
@@ -125,6 +127,8 @@ function check_capital_active_by_salaryuuid($salary_uuid, $conn)
     }
 }
 
+
+
 function recover_capital_by_salary_uuid($salary_uuid, $conn)
 {
     $tableCapital = 'bincang_capital';
@@ -142,6 +146,7 @@ function recover_capital_by_salary_uuid($salary_uuid, $conn)
         return false;
     }
 }
+
 
 
 function acumulate_amount_total_capital($type_transaction, $amount, $conn)
@@ -186,6 +191,8 @@ function acumulate_amount_total_capital($type_transaction, $amount, $conn)
     }
 }
 
+
+
 function get_type_transaction($id, $conn)
 {
     $tableCapital = 'bincang_capital';
@@ -210,6 +217,8 @@ function get_type_transaction($id, $conn)
         return null;
     }
 }
+
+
 
    function logCapitalAction($type, $actor, $amount_of_action, $id_bincang_capital, $description, $conn, $previousValue = 0, $newValue = 0){
 

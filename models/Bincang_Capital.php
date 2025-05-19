@@ -279,6 +279,30 @@ class Bincang_Capital
         }
     }
 
+    public function get_last_capital()
+{
+    try {
+        $sql = "SELECT total_capital FROM " . $this->tableTotalCapital . " ORDER BY created_at DESC LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $lastCapital = $result ? $result['total_capital'] : 0;
+
+        return [
+            "status" => "success",
+            "code" => 200,
+            "total_capital" => $lastCapital,
+        ];
+    } catch (PDOException $e) {
+        return [
+            "status" => "error",
+            "code" => 500,
+            "message" => "Error get last capital: " . $e->getMessage(),
+        ];
+    }
+}
+
 
     public function deletePermanentlyInactive($capital_uuid,$deleted_by)
     {
